@@ -1,59 +1,68 @@
 ﻿using System;
+using System.Data.SqlClient;
+using System.Security.Cryptography;
+using System.Text;
 using System.Web.UI;
 
-public partial class Site : System.Web.UI.MasterPage
+public partial class SiteMaster : MasterPage
 {
     protected void Page_Load(object sender, EventArgs e)
     {
-        if (!IsPostBack) UpdateAuthUI();
-    }
+        // 1. 테마 로직: 세션의 IsDark 값을 읽어 자바스크립트 함수 호출
+        bool isDark = Session["IsDark"] != null && (bool)Session["IsDark"];
+        litThemeScript.Text = string.Format("<script>initTheme({0});</script>", isDark.ToString().ToLower());
 
-    private void UpdateAuthUI()
-    {
+        // 2. 유저 정보 UI
         if (Session["UserID"] != null)
         {
-            phAnonymous.Visible = false;
-            phAuthorized.Visible = true;
-            litUserName.Text = Session["UserName"] != null ? Session["UserName"].ToString() : "사용자";
+            litUserNav.Text = string.Format("<span class='dark:text-slate-300 font-bold mr-2'>{0}님</span>", Session["UserName"]);
+            btnLogout.Visible = true;
         }
         else
         {
-            phAnonymous.Visible = true;
-            phAuthorized.Visible = false;
+            litUserNav.Text = "<button type='button' onclick='openLogin()' class='px-5 py-2 bg-black text-white rounded-full text-sm font-bold'>로그인</button>";
+            btnLogout.Visible = false;
         }
     }
 
     protected void btnLoginSubmit_Click(object sender, EventArgs e)
     {
-        string id = Request.Form["loginId"];
-        string pw = Request.Form["loginPw"];
+        string id = txtLoginId.Text.Trim();
+        string pw = GetMd5Hash(txtLoginPw.Text.Trim());
 
-        if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(pw)) return;
-
-        MemberDao dao = new MemberDao();
-        if (dao.Authenticate(id, pw))
+        try
         {
-            Session["UserID"] = id;
-            Session["UserName"] = dao.GetNickname(id);
-
-            // 💎 로그인 시 DB에서 다크모드/언어 설정 로드
-            bool isDark; string lang;
-            dao.GetUserSettings(id, out isDark, out lang);
-            Session["DarkMode"] = isDark;
-            Session["Language"] = lang;
-
-            Response.Redirect(Request.RawUrl); // 현재 페이지 새로고침하여 적용
+            string sql = string.Format("SELECT UserID, Name, ISNULL(DarkMode, 0) as DarkMode FROM members WHERE UserID='{0}' AND passwd='{1}'", id, pw);
+            using (SqlDataReader reader = DbMan.ExecuteReader(sql))
+            {
+                if (reader.Read())
+                {
+                    Session["UserID"] = reader["UserID"].ToString().Trim();
+                    Session["UserName"] = reader["Name"].ToString().Trim();
+                    Session["IsDark"] = Convert.ToBoolean(reader["DarkMode"]);
+                    DbMan.Close();
+                    Response.Redirect(Request.RawUrl);
+                }
+                else
+                {
+                    DbMan.Close();
+                    ScriptManager.RegisterStartupScript(this, this.GetType(), "fail", "alert('정보 불일치');", true);
+                }
+            }
         }
-        else
-        {
-            Response.Write("<script>alert('아이디 또는 비밀번호가 올바르지 않습니다.');</script>");
-        }
+        catch { DbMan.Close(); }
     }
 
-    protected void btnLogout_Click(object sender, EventArgs e)
+    private string GetMd5Hash(string input)
     {
-        Session.Clear();
-        Session.Abandon();
-        Response.Redirect("~/Default.aspx");
+        using (MD5 md5Hash = MD5.Create())
+        {
+            byte[] data = md5Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
+            StringBuilder sBuilder = new StringBuilder();
+            for (int i = 0; i < data.Length; i++) sBuilder.Append(data[i].ToString("x2"));
+            return sBuilder.ToString();
+        }
     }
+
+    protected void btnLogout_Click(object sender, EventArgs e) { Session.Clear(); Response.Redirect("Default.aspx"); }
 }

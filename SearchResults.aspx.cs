@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 
 public partial class SearchResults : System.Web.UI.Page
 {
@@ -7,29 +8,37 @@ public partial class SearchResults : System.Web.UI.Page
     {
         if (!IsPostBack)
         {
-            string query = Request.QueryString["q"];
-            if (!string.IsNullOrEmpty(query))
+            string q = Request.QueryString["q"];
+            if (!string.IsNullOrEmpty(q))
             {
-                txtSearch.Text = query;
+                txtSearch.Text = q;
+                BindDummySearch(q); // 나중에 실제 크롤링/API 로직으로 교체하세요.
             }
-            BindResults();
         }
-    }
-
-    private void BindResults()
-    {
-        var results = new List<object>
-        {
-            new { Title="Wikipedia - 위키백과", Url="https://ko.wikipedia.org", Description="누구나 참여할 수 있는 자유 백과사전입니다." },
-            new { Title="GitHub - 개발자 플랫폼", Url="https://github.com", Description="코드 공유 및 협업을 위한 세계 최대의 플랫폼입니다." },
-            new { Title="Stack Overflow", Url="https://stackoverflow.com", Description="프로그래밍 질문과 답변을 위한 커뮤니티입니다." }
-        };
-        rptResults.DataSource = results;
-        rptResults.DataBind();
     }
 
     protected void btnSearch_Click(object sender, EventArgs e)
     {
-        Response.Redirect("SearchResults.aspx?q=" + Server.UrlEncode(txtSearch.Text));
+        if (!string.IsNullOrEmpty(txtSearch.Text))
+        {
+            Response.Redirect("SearchResults.aspx?q=" + Server.UrlEncode(txtSearch.Text));
+        }
+    }
+
+    private void BindDummySearch(string q)
+    {
+        // 나중에 구글/네이버 긁어온 데이터를 담을 구조
+        DataTable dt = new DataTable();
+        dt.Columns.Add("Title");
+        dt.Columns.Add("Url");
+        dt.Columns.Add("Description");
+
+        // 검색어에 따른 샘플 데이터 (테스트용)
+        dt.Rows.Add(q + "에 대한 검색 결과 1", "https://google.com/search?q=" + q, "이 영역은 나중에 외부 엔진에서 긁어온 상세 설명이 표시될 자리입니다.");
+        dt.Rows.Add(q + "와 관련된 유용한 정보", "https://naver.com", "더 정확한 결과를 위해 구글/네이버 로직을 결합할 예정입니다.");
+        dt.Rows.Add("ASP.NET 개발 가이드", "https://github.com/andomang", "사용자 정의 검색 엔진 구축 테스트 중...");
+
+        rptResults.DataSource = dt;
+        rptResults.DataBind();
     }
 }
