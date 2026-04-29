@@ -9,6 +9,7 @@ public class DbMan
 {
     //모듈변수 선언
     //데이터베이스 관련 정보
+    //static string dataSource = @"Data Source=db49734.databaseasp.net;Initial Catalog=db49734;User ID=db49734;Password=d1k2s3123?";
     static string dataSource = @"Server=(local)\SQLEXPRESS; uid=meta; pwd=metapass; database=meta";
 
     //SqlConnection 객체

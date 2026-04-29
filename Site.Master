@@ -2,58 +2,167 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head runat="server">
-    <meta charset="utf-8" />
-    <title>Meta</title>
+    <title>Meta Search Engine</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        // Tailwind 설정: 클래스 기반 다크모드 활성화
-        tailwind.config = {
-            darkMode: 'class'
-        }
-
-        // 서버에서 전달한 테마 값을 즉시 적용하는 함수
+        tailwind.config = { darkMode: 'class' }
         function initTheme(isDark) {
-            if (isDark) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
         }
     </script>
     <asp:Literal ID="litThemeScript" runat="server"></asp:Literal>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
-    <form runat="server">
-        <nav class="h-16 border-b dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-                <a href="Default.aspx" class="text-2xl font-black text-blue-600">LOGO</a>
-                <div class="flex items-center gap-8 text-sm font-bold">
-                    <a href="Community.aspx" class="dark:text-slate-300">커뮤니티</a>
-                    <a href="Settings.aspx" class="dark:text-slate-300">설정</a>
+    <form id="form1" runat="server">
+        <asp:ScriptManager ID="ScriptManager1" runat="server" />
+
+        <nav class="h-16 border-b dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-50 px-4">
+            <div class="max-w-7xl mx-auto h-full flex items-center justify-between">
+                <a href="Default.aspx" class="flex items-center">
+                    <svg height="52" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#3b82f6"/>
+                                <stop offset="50%" style="stop-color:#8b5cf6"/>
+                                <stop offset="100%" style="stop-color:#ec4899"/>
+                            </linearGradient>
+                            <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#60a5fa"/>
+                                <stop offset="100%" style="stop-color:#c084fc"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="52" cy="52" r="34" fill="none" stroke="url(#g1)" stroke-width="5"/>
+                        <line x1="78" y1="78" x2="104" y2="104" stroke="url(#g1)" stroke-width="5" stroke-linecap="round"/>
+                        <polyline points="34,70 34,34 52,56 70,34 70,70" fill="none" stroke="url(#g2)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <text x="124" y="60" font-family="Arial, sans-serif" font-size="46" font-weight="900" fill="url(#g1)" letter-spacing="-1">Meta</text>
+                        <text x="127" y="95" font-family="Arial, sans-serif" font-size="20" font-weight="400" fill="#8b5cf6" letter-spacing="8">SEARCH</text>
+                        <line x1="127" y1="103" x2="390" y2="103" stroke="url(#g1)" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                </a>
+                <div class="flex items-center gap-3 sm:gap-6 text-xs font-bold dark:text-slate-300">
+                    <a href="Community.aspx" class="hover:text-blue-500"><asp:Literal ID="litNavCommunity" runat="server"></asp:Literal></a>
+                    <a href="Settings.aspx" class="hover:text-blue-500"><asp:Literal ID="litNavSettings" runat="server"></asp:Literal></a>
+
+                    <%-- 알림 벨 (로그인 시만 표시) --%>
+                    <asp:PlaceHolder ID="phNotif" runat="server" Visible="false">
+                    <div class="relative" id="notifWrap">
+                        <button type="button" onclick="toggleNotif(event)" class="relative p-1 hover:text-blue-500 transition-colors">
+                            <i data-lucide="bell" class="w-4 h-4"></i>
+                            <asp:Literal ID="litNotifBadge" runat="server"></asp:Literal>
+                        </button>
+                        <div id="notifDrop" class="hidden absolute right-0 top-8 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border dark:border-slate-700 z-[200] overflow-hidden">
+                            <div class="p-4 border-b dark:border-slate-700 flex justify-between items-center">
+                                <span class="font-bold dark:text-white text-sm"><asp:Literal ID="litNotifTitle" runat="server"></asp:Literal></span>
+                                <button type="button" onclick="markAllRead()" class="text-xs text-blue-500 hover:underline"><asp:Literal ID="litNotifMarkRead" runat="server"></asp:Literal></button>
+                            </div>
+                            <div id="notifList" class="max-h-72 overflow-y-auto">
+                                <p class="p-6 text-center text-gray-400 text-sm">...</p>
+                            </div>
+                        </div>
+                    </div>
+                    </asp:PlaceHolder>
+
                     <asp:Literal ID="litUserNav" runat="server"></asp:Literal>
-                    <asp:LinkButton ID="btnLogout" runat="server" OnClick="btnLogout_Click" Visible="false" CssClass="text-red-500">로그아웃</asp:LinkButton>
+                    <asp:LinkButton ID="btnLogout" runat="server" OnClick="btnLogout_Click" Visible="false" CssClass="text-red-500"><asp:Literal ID="litNavLogout" runat="server"></asp:Literal></asp:LinkButton>
                 </div>
             </div>
         </nav>
 
-        <asp:ContentPlaceHolder ID="MainContent" runat="server" />
-
-        <div id="loginModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-            <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl w-96 shadow-2xl">
-                <h2 class="text-2xl font-bold mb-6 dark:text-white text-center">로그인</h2>
-                <asp:TextBox ID="txtLoginId" runat="server" placeholder="아이디" CssClass="w-full p-4 mb-3 rounded-xl border dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                <asp:TextBox ID="txtLoginPw" runat="server" TextMode="Password" placeholder="비밀번호" CssClass="w-full p-4 mb-6 rounded-xl border dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-                <asp:Button ID="btnLoginSubmit" runat="server" Text="로그인" OnClick="btnLoginSubmit_Click" CssClass="w-full py-4 bg-blue-600 text-white rounded-xl font-bold mb-4 cursor-pointer active:scale-95 transition-all" />
-                <div class="flex justify-between text-sm">
-                    <a href="Register.aspx" class="text-blue-600 font-bold hover:underline">회원가입</a>
-                    <button type="button" onclick="closeLogin()" class="text-gray-400">닫기</button>
+        <div id="loginModal" class="hidden fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-sm shadow-2xl text-center">
+                <h2 class="text-2xl font-bold mb-6 dark:text-white"><asp:Literal ID="litLoginTitle" runat="server"></asp:Literal></h2>
+                <div class="space-y-4 text-left">
+                    <asp:TextBox ID="txtLoginId" runat="server" CssClass="w-full p-3 border rounded-xl dark:bg-slate-700 dark:border-slate-600 dark:text-white"></asp:TextBox>
+                    <asp:TextBox ID="txtLoginPw" runat="server" TextMode="Password" CssClass="w-full p-3 border rounded-xl dark:bg-slate-700 dark:border-slate-600 dark:text-white"></asp:TextBox>
+                    <asp:Button ID="btnLogin" runat="server" OnClick="btnLogin_Click" CssClass="w-full py-3 bg-blue-600 text-white rounded-xl font-bold cursor-pointer" />
+                    <div class="text-center text-sm text-gray-500 mt-4">
+                        <asp:Literal ID="litNoAccount" runat="server"></asp:Literal>
+                        <a href="Register.aspx" class="text-blue-600 font-bold hover:underline"><asp:Literal ID="litRegisterLink" runat="server"></asp:Literal></a>
+                    </div>
+                    <button type="button" onclick="closeLogin()" class="w-full text-gray-400 text-xs mt-2"><asp:Literal ID="litLoginClose" runat="server"></asp:Literal></button>
                 </div>
             </div>
         </div>
 
+        <asp:ContentPlaceHolder ID="MainContent" runat="server" />
+
         <script>
+            var _noNotifMsg  = '<asp:Literal ID="litNotifEmpty" runat="server" />';
+            var _commentMsg  = '<asp:Literal ID="litNotifComment" runat="server" />';
+            var _likeMsg     = '<asp:Literal ID="litNotifLike" runat="server" />';
+
+            lucide.createIcons();
             function openLogin() { document.getElementById('loginModal').classList.remove('hidden'); }
             function closeLogin() { document.getElementById('loginModal').classList.add('hidden'); }
+
+            function toggleNotif(e) {
+                e.stopPropagation();
+                var d = document.getElementById('notifDrop');
+                d.classList.toggle('hidden');
+                if (!d.classList.contains('hidden')) loadNotifs();
+            }
+            function loadNotifs() {
+                fetch('Notify.aspx?action=getList')
+                    .then(function(r){ return r.json(); })
+                    .then(function(list){
+                        var el = document.getElementById('notifList');
+                        if (!list || list.length === 0) {
+                            el.innerHTML = '<p class="p-6 text-center text-gray-400 dark:text-slate-500 text-sm">' + _noNotifMsg + '</p>';
+                            return;
+                        }
+                        el.innerHTML = list.map(function(n){
+                            var color = n.type === 'comment' ? 'blue' : 'pink';
+                            var bg    = n.isRead ? '' : 'bg-blue-50 dark:bg-blue-950/20';
+                            var msg   = n.type === 'comment' ? _commentMsg : _likeMsg;
+                            var actor = n.actorNick ? n.actorNick + ' ' : '';
+                            return '<div data-notif="' + n.notifID + '" class="relative flex items-center border-b dark:border-slate-700 last:border-0 ' + bg + '">'
+                                + '<a href="CommunityView.aspx?no=' + n.bbsNo + '" onclick="markOneRead(' + n.notifID + ')" class="flex items-start gap-3 p-4 flex-1 min-w-0 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">'
+                                + '<div class="w-8 h-8 rounded-full bg-' + color + '-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">' + (n.actorNick ? n.actorNick.charAt(0) : '?') + '</div>'
+                                + '<div class="min-w-0"><p class="text-xs dark:text-slate-300 leading-relaxed">' + actor + msg + '</p>'
+                                + '<p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5 truncate">' + n.bbsTitle + '</p></div>'
+                                + '</a>'
+                                + '<button type="button" onclick="deleteNotif(' + n.notifID + ', this)" class="flex-shrink-0 px-3 text-gray-400 hover:text-red-500 text-lg leading-none transition-colors self-stretch flex items-center" title="삭제">×</button>'
+                                + '</div>';
+                        }).join('');
+                    });
+            }
+            function markOneRead(notifID) {
+                fetch('Notify.aspx?action=markOne&notifID=' + notifID);
+                var item = document.querySelector('[data-notif="' + notifID + '"]');
+                if (item) {
+                    item.classList.remove('bg-blue-50');
+                    item.classList.remove('dark:bg-blue-950/20');
+                }
+                var badge = document.querySelector('#notifWrap .absolute.-top-1');
+                if (badge) badge.style.display = 'none';
+            }
+            function deleteNotif(notifID, btn) {
+                fetch('Notify.aspx?action=delete&notifID=' + notifID).then(function(){
+                    var item = btn.closest ? btn.closest('[data-notif]') : btn.parentNode;
+                    if (item && item.parentNode) {
+                        item.parentNode.removeChild(item);
+                        var el = document.getElementById('notifList');
+                        if (el && el.querySelectorAll('[data-notif]').length === 0)
+                            el.innerHTML = '<p class="p-6 text-center text-gray-400 dark:text-slate-500 text-sm">' + _noNotifMsg + '</p>';
+                    }
+                });
+            }
+            function markAllRead() {
+                fetch('Notify.aspx?action=markRead').then(function(){
+                    document.getElementById('notifDrop').classList.add('hidden');
+                    var badge = document.querySelector('#notifWrap .absolute.-top-1');
+                    if (badge) badge.style.display = 'none';
+                });
+            }
+            document.addEventListener('click', function(e) {
+                var w = document.getElementById('notifWrap');
+                var d = document.getElementById('notifDrop');
+                if (w && d && !w.contains(e.target)) d.classList.add('hidden');
+            });
         </script>
     </form>
 </body>
