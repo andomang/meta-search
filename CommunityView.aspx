@@ -198,10 +198,10 @@
                                 <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-slate-600 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
                                     <%--
                                         GetAvatarHtml(): 코드비하인드에 정의된 헬퍼 메서드.
-                                        AuthorNick(닉네임)과 ProfileImg(프로필 이미지 경로)를 받아
-                                        프로필 이미지 태그 또는 이니셜 텍스트 HTML을 반환합니다.
+                                        AuthorNick(닉네임) 첫 글자로 이니셜 아바타를 반환합니다.
+                                        (프로필 사진 기능 제거됨)
                                     --%>
-                                    <%# GetAvatarHtml(Eval("AuthorNick").ToString(), Eval("ProfileImg").ToString()) %>
+                                    <%# GetAvatarHtml(Eval("AuthorNick").ToString()) %>
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between mb-1">

@@ -3,20 +3,20 @@ using System.Data;
 using System.Data.SqlClient;
 
 /// <summary>
-/// 검색 기록 및 검색 결과 클릭 기록 관련 DB 작업을 담당하는 DAO(Data Access Object) 클래스.
-/// [DAO 레이어] - 검색과 관련된 통계·이력 데이터를 DB와 주고받는 역할을 한다.
+/// 검색 기록 및 검색 결과 캐싱 관련 DB 작업을 담당하는 DAO(Data Access Object) 클래스.
+/// [DAO 레이어] - 검색과 관련된 통계·이력·캐시 데이터를 DB와 주고받는 역할을 한다.
 ///
 /// 대상 테이블:
-///   - SearchHistory      : 유저가 입력한 검색어와 검색 시각을 저장
-///   - SearchClickHistory : 유저가 검색 결과에서 클릭한 링크 정보를 저장
+///   - SearchHistory      : 유저가 입력한 검색어와 AI 분류 키워드, 검색 시각을 저장
+///   - SearchResultCache  : 인기 검색어 TOP 10의 검색 결과를 캐시로 저장
 ///
 /// 주요 기능:
 ///   - 검색어 저장 (AddSearchHistory) - 저장 프로시저 procAddSearchHistory 사용
-///   - 결과 클릭 저장 (AddSearchClick) - 저장 프로시저 procAddSearchClick 사용
 ///   - 최근 검색어 조회 (GetRecentSearches) - 중복 제거, 최신순
 ///   - 특정 검색어 삭제 (DeleteSearchHistory)
 ///   - 전체/개인 인기 검색어 조회 (GetTopSearches, GetUserTopSearches)
-///   - 통계 조회 (GetTotalSearchCount, GetTotalClickCount, GetTopKeyword)
+///   - 통계 조회 (GetTotalSearchCount, GetTopKeyword)
+///   - 캐시 조회/저장 (GetCachedResults, SaveResultCache)
 ///
 /// SearchResults.aspx, MyPage.aspx, Settings.aspx 등에서 사용된다.
 /// </summary>
@@ -28,9 +28,9 @@ public class SearchDao
     /// </summary>
     /// <param name="userID">검색을 수행한 회원 아이디</param>
     /// <param name="query">검색어 문자열 (예: "서울 맛집")</param>
-    /// <param name="category">ClaudeApi.Classify()가 반환한 카테고리 (예: "국내맛집")</param>
+    /// <param name="keyword">ClaudeApi.Classify()가 반환한 키워드 (예: "국내맛집")</param>
     /// <returns>1 = 저장 성공, -1 = 오류 발생</returns>
-    public int AddSearchHistory(string userID, string query, string category)
+    public int AddSearchHistory(string userID, string query, string keyword)
     {
         // 결과 초기값 0
         int result = 0;
@@ -38,17 +38,17 @@ public class SearchDao
         {
             // DB 연결 열기
             SqlConnection conn = DbMan.Open();
-            // 저장 프로시저 procAddSearchHistory 호출 준비
-            SqlCommand cmd = new SqlCommand("procAddSearchHistory", conn);
-            // 명령 유형을 StoredProcedure로 설정
-            cmd.CommandType = CommandType.StoredProcedure;
+            // 직접 INSERT 쿼리 사용 (SP 의존 제거 — 컬럼명 Category→Keyword 변경 반영)
+            SqlCommand cmd = new SqlCommand(
+                "INSERT INTO SearchHistory(UserID, Query, Keyword, SearchTime) VALUES(@UserID, @Query, @Keyword, GETDATE())",
+                conn);
             // 유저 아이디 파라미터 (Char 15자)
-            cmd.Parameters.Add(new SqlParameter("@UserID",   SqlDbType.Char,     15)).Value = userID;
+            cmd.Parameters.Add(new SqlParameter("@UserID",  SqlDbType.Char,     15)).Value = userID;
             // 검색어 파라미터 (유니코드 최대 200자)
-            cmd.Parameters.Add(new SqlParameter("@Query",    SqlDbType.NVarChar, 200)).Value = query;
-            // 카테고리 파라미터 (유니코드 최대 50자)
-            cmd.Parameters.Add(new SqlParameter("@Category", SqlDbType.NVarChar, 50)).Value = category;
-            // 저장 프로시저 실행
+            cmd.Parameters.Add(new SqlParameter("@Query",   SqlDbType.NVarChar, 200)).Value = query;
+            // AI 분류 키워드 파라미터 (유니코드 최대 50자)
+            cmd.Parameters.Add(new SqlParameter("@Keyword", SqlDbType.NVarChar, 50)).Value = keyword;
+            // INSERT 쿼리 실행
             cmd.ExecuteNonQuery();
             // 성공 시 1 반환
             result = 1;
@@ -61,57 +61,6 @@ public class SearchDao
         finally
         {
             // 성공/실패 무관하게 DB 연결 닫기
-            DbMan.Close();
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// 유저가 검색 결과에서 특정 링크를 클릭했을 때 클릭 기록을 저장한다.
-    /// SearchClickHistory 테이블에 INSERT하며, 저장 프로시저 procAddSearchClick을 사용한다.
-    /// 이 데이터는 클릭 통계(GetTotalClickCount) 및 개인화 추천에 활용될 수 있다.
-    /// </summary>
-    /// <param name="userID">클릭을 수행한 회원 아이디</param>
-    /// <param name="query">클릭 당시 입력했던 검색어</param>
-    /// <param name="category">해당 검색의 카테고리 (예: "국내뉴스")</param>
-    /// <param name="clickedUrl">클릭한 결과 페이지의 URL</param>
-    /// <param name="clickedTitle">클릭한 결과의 제목 텍스트</param>
-    /// <returns>1 = 저장 성공, -1 = 오류 발생</returns>
-    public int AddSearchClick(string userID, string query, string category, string clickedUrl, string clickedTitle)
-    {
-        // 결과 초기값 0
-        int result = 0;
-        try
-        {
-            // DB 연결 열기
-            SqlConnection conn = DbMan.Open();
-            // 저장 프로시저 procAddSearchClick 호출 준비
-            SqlCommand cmd = new SqlCommand("procAddSearchClick", conn);
-            // 명령 유형을 StoredProcedure로 설정
-            cmd.CommandType = CommandType.StoredProcedure;
-            // 유저 아이디 파라미터
-            cmd.Parameters.Add(new SqlParameter("@UserID",       SqlDbType.Char,     15)).Value = userID;
-            // 검색어 파라미터
-            cmd.Parameters.Add(new SqlParameter("@Query",        SqlDbType.NVarChar, 200)).Value = query;
-            // 카테고리 파라미터
-            cmd.Parameters.Add(new SqlParameter("@Category",     SqlDbType.NVarChar, 50)).Value = category;
-            // 클릭한 URL 파라미터 (최대 500자)
-            cmd.Parameters.Add(new SqlParameter("@ClickedUrl",   SqlDbType.NVarChar, 500)).Value = clickedUrl;
-            // 클릭한 결과의 제목 파라미터 (최대 300자)
-            cmd.Parameters.Add(new SqlParameter("@ClickedTitle", SqlDbType.NVarChar, 300)).Value = clickedTitle;
-            // 저장 프로시저 실행
-            cmd.ExecuteNonQuery();
-            // 성공 시 1 반환
-            result = 1;
-        }
-        catch
-        {
-            // 예외 발생 시 -1 반환
-            result = -1;
-        }
-        finally
-        {
-            // DB 연결 닫기
             DbMan.Close();
         }
         return result;
@@ -248,35 +197,6 @@ public class SearchDao
     }
 
     /// <summary>
-    /// 특정 유저의 전체 클릭 횟수(SearchClickHistory 행 수)를 반환한다.
-    /// MyPage.aspx 및 Settings.aspx의 "총 클릭 횟수" 통계 카드에 사용된다.
-    /// </summary>
-    /// <param name="userID">클릭 횟수를 집계할 회원 아이디</param>
-    /// <returns>해당 유저의 총 클릭 횟수 (정수), 오류 발생 시 0 반환</returns>
-    public int GetTotalClickCount(string userID)
-    {
-        try
-        {
-            // COUNT(*): 해당 유저의 SearchClickHistory 행 수 = 총 클릭 횟수
-            SqlDataReader r = DbMan.ExecuteReader(string.Format(
-                "SELECT COUNT(*) FROM SearchClickHistory WHERE UserID='{0}'", userID));
-            // 결과 읽기
-            int count = r.Read() ? Convert.ToInt32(r[0]) : 0;
-            // Reader 닫기
-            r.Close();
-            // DB 연결 닫기
-            DbMan.Close();
-            return count;
-        }
-        catch
-        {
-            // 예외 발생 시 연결 닫고 0 반환
-            DbMan.Close();
-            return 0;
-        }
-    }
-
-    /// <summary>
     /// 특정 유저가 가장 많이 검색한 키워드 1개를 반환한다.
     /// MyPage.aspx의 "최다 검색어" 통계 카드에 표시된다.
     /// </summary>
@@ -306,5 +226,89 @@ public class SearchDao
             DbMan.Close();
             return "-";
         }
+    }
+
+    /// <summary>
+    /// 특정 유저의 검색 기록 중 AI 가 가장 많이 분류한 키워드 1개를 반환한다.
+    /// Keyword 컬럼(AI 분류값, 예: "뉴스", "쇼핑")을 기준으로 집계한다.
+    /// Settings.aspx 개인정보 탭의 "최다 키워드" 카드에 사용된다.
+    /// </summary>
+    /// <param name="userID">조회할 회원 아이디</param>
+    /// <returns>가장 많이 분류된 AI 키워드 문자열, 없거나 오류 시 "-" 반환</returns>
+    public string GetTopAIKeyword(string userID)
+    {
+        try
+        {
+            // TOP 1: Keyword 컬럼 기준 최다 분류 키워드 1개 선택
+            SqlDataReader r = DbMan.ExecuteReader(string.Format(@"
+                SELECT TOP 1 Keyword FROM SearchHistory
+                WHERE UserID='{0}' AND Keyword IS NOT NULL AND Keyword <> ''
+                GROUP BY Keyword ORDER BY COUNT(*) DESC", userID));
+            string keyword = r.Read() ? r[0].ToString() : "-";
+            r.Close();
+            DbMan.Close();
+            return keyword;
+        }
+        catch
+        {
+            DbMan.Close();
+            return "-";
+        }
+    }
+
+    /// <summary>
+    /// SearchResultCache 테이블에서 특정 검색어에 대해 캐싱된 결과를 조회한다.
+    /// 인기 검색어 TOP 10에 해당하는 검색 결과를 미리 저장해두어 크롤링 시간을 단축한다.
+    /// </summary>
+    /// <param name="query">캐시를 조회할 검색어</param>
+    /// <returns>Title, Url, Description, Source 컬럼을 가진 DataTable (없으면 빈 테이블)</returns>
+    public DataTable GetCachedResults(string query)
+    {
+        // SQL 인젝션 방지를 위해 작은따옴표 이스케이프
+        string q = query.Replace("'", "''");
+        // 7일 이내 캐시만 유효 (오래된 캐시는 캐시 미스로 처리)
+        string sql = string.Format(@"
+            SELECT Title, Url, Description, Source
+            FROM SearchResultCache
+            WHERE Query = N'{0}' AND CachedAt > DATEADD(DAY, -7, GETDATE())
+            ORDER BY CacheID", q);
+        DataSet ds = DbMan.DataAdapterFill(sql, "Cache");
+        return ds.Tables[0];
+    }
+
+    /// <summary>
+    /// SearchResultCache 테이블에 검색 결과를 캐시로 저장한다.
+    /// 기존 캐시가 있으면 삭제 후 새로 저장한다 (새로고침).
+    /// 인기 검색어 TOP 10 진입 시 해당 검색어의 결과를 미리 저장해두는 데 사용된다.
+    /// </summary>
+    /// <param name="query">캐시할 검색어</param>
+    /// <param name="results">저장할 검색 결과 DataTable (Title, Url, Description, Source 컬럼 필요)</param>
+    public void SaveResultCache(string query, System.Data.DataTable results)
+    {
+        string q = query.Replace("'", "''");
+        try
+        {
+            // 기존 캐시 먼저 삭제 (동일 검색어 중복 방지)
+            DbMan.ExecuteNonQuery(string.Format("DELETE FROM SearchResultCache WHERE Query=N'{0}'", q));
+            DbMan.Close();
+
+            // 각 결과 행을 SearchResultCache 테이블에 INSERT
+            foreach (System.Data.DataRow row in results.Rows)
+            {
+                string title = row["Title"].ToString().Replace("'", "''");
+                string url   = row["Url"].ToString().Replace("'", "''");
+                string desc  = row["Description"].ToString().Replace("'", "''");
+                string src   = row["Source"].ToString().Replace("'", "''");
+
+                // CachedAt: 캐시 저장 시각 (GETDATE()로 현재 시각 자동 기록)
+                string sql = string.Format(@"
+                    INSERT INTO SearchResultCache(Query, Title, Url, Description, Source, CachedAt)
+                    VALUES(N'{0}', N'{1}', N'{2}', N'{3}', N'{4}', GETDATE())",
+                    q, title, url, desc, src);
+                DbMan.ExecuteNonQuery(sql);
+                DbMan.Close();
+            }
+        }
+        catch { DbMan.Close(); }
     }
 }

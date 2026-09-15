@@ -46,32 +46,24 @@ public partial class SiteMaster : System.Web.UI.MasterPage
             return;
         }
 
-        // 쿠키와 세션이 불일치할 경우 동기화하고 페이지를 새로고침하는 플래그
-        bool needRedirect = false;
-
-        // DarkMode 쿠키가 있을 경우 세션의 IsDark 와 비교하여 불일치 시 동기화
+        // DarkMode 쿠키 → 세션 직접 갱신 (리다이렉트 불필요 — 같은 요청 내에서 litThemeScript에 반영됨)
+        // 리다이렉트 방식은 PostBack(로그인 버튼 클릭) 시 btnLogin_Click이 실행되기 전에
+        // 페이지를 날려버려 로그인 이벤트가 무시되는 버그를 유발한다.
         if (Request.Cookies["DarkMode"] != null)
         {
-            bool cookieDark   = Request.Cookies["DarkMode"].Value == "1";
-            bool sessionDark  = Session["IsDark"] != null && (bool)Session["IsDark"];
-
-            // 세션에 값이 없거나 쿠키와 세션 값이 다르면 세션을 쿠키 값으로 업데이트
-            if (Session["IsDark"] == null || sessionDark != cookieDark)
-            { Session["IsDark"] = cookieDark; needRedirect = true; }
+            bool cookieDark = Request.Cookies["DarkMode"].Value == "1";
+            // 세션이 없거나 쿠키와 다르면 즉시 세션에 반영
+            if (Session["IsDark"] == null || (bool)Session["IsDark"] != cookieDark)
+                Session["IsDark"] = cookieDark;
         }
 
-        // Language 쿠키가 있을 경우 세션의 Lang 과 비교하여 불일치 시 동기화
+        // Language 쿠키 → 세션 직접 갱신
         if (Request.Cookies["Language"] != null)
         {
             string cookieLang = Request.Cookies["Language"].Value;
-
-            // 세션에 값이 없거나 쿠키와 세션 값이 다르면 세션을 쿠키 값으로 업데이트
             if (Session["Lang"] == null || Session["Lang"].ToString() != cookieLang)
-            { Session["Lang"] = cookieLang; needRedirect = true; }
+                Session["Lang"] = cookieLang;
         }
-
-        // 쿠키-세션 동기화가 발생했으면 변경 사항이 즉시 반영되도록 현재 페이지를 새로고침
-        if (needRedirect) { Response.Redirect(Request.RawUrl); return; }
 
         // 알림 벨
         // 로그인 상태일 때만 알림 영역을 표시
@@ -131,13 +123,11 @@ public partial class SiteMaster : System.Web.UI.MasterPage
             // 로그인 상태: 닉네임(없으면 UserID)과 인사말을 내비게이션에 표시
             string name = Session["UserName"] != null ? Session["UserName"].ToString() : Session["UserID"].ToString();
             string greeting = Lang.Get("nav.greeting");
-            string mypage = Lang.Get("nav.mypage");
 
-            // 마이페이지 링크와 닉네임+인사말 조합 문자열을 litUserNav 에 바인딩
+            // 닉네임+인사말 표시 (마이페이지 삭제로 링크 제거, Settings.aspx에 통합)
             litUserNav.Text = string.Format(
-                "<a href='MyPage.aspx' class='hover:text-blue-500'>{0}</a>" +
-                "<span class='font-bold dark:text-slate-300'>{1}{2}</span>",
-                mypage, name, greeting);
+                "<span class='font-bold dark:text-slate-300'>{0}{1}</span>",
+                name, greeting);
 
             // 로그아웃 버튼을 표시
             btnLogout.Visible = true;

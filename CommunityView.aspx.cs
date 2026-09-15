@@ -199,14 +199,14 @@ public partial class CommunityView : System.Web.UI.Page
             }
             catch { DbMan.Close(); Response.Write("{\"result\":\"error\"}"); Response.End(); return; }
 
-            // 닉네임 + 프로필 조회: 댓글 아바타를 화면에 즉시 표시하기 위해 필요
-            string nick = ""; string profileImg = "";
+            // 닉네임 조회: 댓글 아바타(이니셜)를 화면에 즉시 표시하기 위해 필요
+            string nick = "";
             try
             {
-                // members 테이블에서 닉네임과 프로필 이미지 파일명 조회
+                // members 테이블에서 닉네임 조회 (ProfileImg 컬럼 제거됨)
                 SqlDataReader r = DbMan.ExecuteReader(
-                    string.Format("SELECT Nickname, ProfileImg FROM members WHERE userid='{0}'", uid));
-                if (r.Read()) { nick = r["Nickname"].ToString().Trim(); profileImg = r["ProfileImg"] != DBNull.Value ? r["ProfileImg"].ToString() : ""; }
+                    string.Format("SELECT Nickname FROM members WHERE userid='{0}'", uid));
+                if (r.Read()) { nick = r["Nickname"].ToString().Trim(); }
                 r.Close(); DbMan.Close();
             }
             catch { DbMan.Close(); }
@@ -222,10 +222,8 @@ public partial class CommunityView : System.Web.UI.Page
             }
             catch { DbMan.Close(); }
 
-            // 아바타 HTML 생성: 프로필 이미지가 있으면 <img> 태그, 없으면 닉네임 첫 글자
-            string avatarHtml = !string.IsNullOrEmpty(profileImg)
-                ? string.Format("<img src='uploads/{0}' class='w-full h-full object-cover' />", profileImg)
-                : (nick.Length > 0 ? nick.Substring(0, 1).ToUpper() : "?");
+            // 아바타 HTML 생성: 닉네임 첫 글자 이니셜로 표시 (프로필 사진 기능 제거됨)
+            string avatarHtml = nick.Length > 0 ? nick.Substring(0, 1).ToUpper() : "?";
 
             // JSON 직접 조립: 새 댓글을 화면에 즉시 추가하기 위해 JavaScript가 필요한 모든 정보를 포함
             // (JSON 라이브러리 의존성 없이 StringBuilder로 직접 구성)
@@ -303,9 +301,9 @@ public partial class CommunityView : System.Web.UI.Page
     /// <param name="no">조회할 게시글 번호</param>
     private void LoadPost(string no)
     {
-        // Bbs 테이블(게시글)과 members 테이블(작성자 정보)을 JOIN하여 상세 내용 조회
+        // Bbs 테이블(게시글)과 members 테이블(작성자 정보)을 JOIN하여 상세 내용 조회 (ProfileImg 제거됨)
         string sql = string.Format(@"
-            SELECT b.*, m.Nickname, m.ProfileImg
+            SELECT b.*, m.Nickname
             FROM Bbs b INNER JOIN members m ON b.Author = m.userid
             WHERE b.No = {0}", no);
 
@@ -323,13 +321,9 @@ public partial class CommunityView : System.Web.UI.Page
         litDate.Text     = Convert.ToDateTime(dr["UploadTime"]).ToString("yyyy.MM.dd HH:mm");
         litHits.Text     = dr["Hits"].ToString();
 
-        // 아바타 (프로필 사진 우선)
-        // 프로필 이미지가 있으면 <img> 태그로, 없으면 닉네임 첫 글자로 아바타 표시
-        string profileImg = dr["ProfileImg"] != DBNull.Value ? dr["ProfileImg"].ToString() : "";
-        string nick       = dr["Nickname"].ToString().Trim();
-        litAvatar.Text    = !string.IsNullOrEmpty(profileImg)
-            ? string.Format("<img src='uploads/{0}' class='w-full h-full object-cover' />", profileImg)
-            : (nick.Length > 0 ? nick.Substring(0, 1).ToUpper() : "?");
+        // 아바타: 닉네임 첫 글자 이니셜로 표시 (프로필 사진 기능 제거됨)
+        string nick    = dr["Nickname"].ToString().Trim();
+        litAvatar.Text = nick.Length > 0 ? nick.Substring(0, 1).ToUpper() : "?";
 
         // 첨부파일이 있는 경우에만 파일 다운로드 영역을 표시
         if (!string.IsNullOrEmpty(dr["FileName"].ToString()))
@@ -360,9 +354,10 @@ public partial class CommunityView : System.Web.UI.Page
     {
         // BbsComment 테이블(댓글)과 members 테이블(작성자 정보)을 JOIN하여 댓글 목록 조회
         // CommentID 오름차순 정렬로 오래된 댓글이 먼저 표시됨
+        // ProfileImg 제거됨 — 댓글 아바타는 ASPX 템플릿에서 Nickname 첫 글자로 표시
         string sql = string.Format(@"
             SELECT c.CommentID, c.Author, c.Content, c.CreatedAt,
-                   m.Nickname AS AuthorNick, m.ProfileImg
+                   m.Nickname AS AuthorNick
             FROM BbsComment c
             INNER JOIN members m ON c.Author = m.userid
             WHERE c.BbsNo = {0}
@@ -379,20 +374,15 @@ public partial class CommunityView : System.Web.UI.Page
     }
 
     /// <summary>
-    /// 댓글 아바타 HTML 반환 헬퍼 메서드 (ASPX 템플릿에서 직접 호출)
-    /// 프로필 이미지가 있으면 &lt;img&gt; 태그를, 없으면 닉네임 첫 글자(대문자)를 반환
+    /// 댓글 아바타 이니셜 반환 헬퍼 메서드 (ASPX 템플릿에서 직접 호출)
+    /// 닉네임 첫 글자(대문자)를 아바타로 반환한다 (프로필 사진 기능 제거됨)
     /// Repeater의 ItemTemplate에서 &lt;%# GetAvatarHtml(...) %&gt; 형태로 호출됨
     /// </summary>
-    /// <param name="nick">사용자 닉네임 (프로필 이미지 없을 때 첫 글자 사용)</param>
-    /// <param name="profileImg">프로필 이미지 파일명 (없으면 빈 문자열)</param>
-    /// <returns>아바타 표시용 HTML 문자열</returns>
-    protected string GetAvatarHtml(string nick, string profileImg)
+    /// <param name="nick">사용자 닉네임</param>
+    /// <returns>닉네임 첫 글자 대문자 또는 "?"</returns>
+    protected string GetAvatarHtml(string nick)
     {
-        // 프로필 이미지 파일명이 있으면 uploads 폴더에서 이미지를 원형으로 표시
-        if (!string.IsNullOrEmpty(profileImg))
-            return string.Format("<img src='uploads/{0}' class='w-full h-full object-cover rounded-full' />", profileImg);
-
-        // 프로필 이미지가 없으면 닉네임 첫 글자(대문자)를 아바타 대신 사용
+        // 닉네임 첫 글자(대문자)를 아바타 이니셜로 사용
         return nick.Length > 0 ? nick.Substring(0, 1).ToUpper() : "?";
     }
 

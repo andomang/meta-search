@@ -40,11 +40,9 @@
                 <asp:Literal ID="litTabGeneral" runat="server"></asp:Literal>
             </button>
 
-            <%-- [개인정보] 탭 버튼
-                 onclick="switchTab('privacy')" : 클릭 시 개인정보 탭 패널을 표시하고 일반 패널을 숨긴다.
-                 id="tabPrivacy" : JavaScript 에서 활성/비활성 클래스를 동적으로 교체할 때 사용한다.
-                 border-transparent : 비활성 상태이므로 밑줄이 투명하다.
-                 litTabPrivacy : 코드비하인드에서 "개인정보" 또는 "Privacy" 텍스트를 설정한다. --%>
+            <%-- [내 정보] 탭 버튼 (구 "개인정보" - 마이페이지 통합 후 "내 정보"로 변경)
+                 onclick="switchTab('privacy')" : 클릭 시 내 정보 탭 패널을 표시하고 일반 패널을 숨긴다.
+                 id="tabPrivacy" : JavaScript 에서 활성/비활성 클래스를 동적으로 교체할 때 사용한다. --%>
             <button type="button" onclick="switchTab('privacy')" id="tabPrivacy"
                 class="tab-btn px-6 py-3 font-bold text-sm border-b-2 border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-all">
                 <asp:Literal ID="litTabPrivacy" runat="server"></asp:Literal>
@@ -56,41 +54,6 @@
              space-y-6 : 자식 카드들 사이 세로 간격 24px --%>
         <%-- 일반 탭 --%>
         <div id="panelGeneral" class="space-y-6">
-
-            <%-- ===== 프로필 사진 카드 ===== --%>
-            <%-- 프로필 사진 --%>
-            <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <%-- 프로필 사진 섹션 제목: 코드비하인드에서 litProfilePhotoLabel.Text 로 설정 --%>
-                        <h2 class="text-xl font-bold dark:text-white"><asp:Literal ID="litProfilePhotoLabel" runat="server"></asp:Literal></h2>
-                        <%-- 프로필 사진 부제목(설명): 코드비하인드에서 litProfilePhotoSub.Text 로 설정 --%>
-                        <p class="text-gray-500 dark:text-slate-400 text-sm mt-1"><asp:Literal ID="litProfilePhotoSub" runat="server"></asp:Literal></p>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <%-- 현재 아바타 표시 영역
-                             w-14 h-14 rounded-full : 56px × 56px 원형
-                             bg-blue-500 : 기본 아바타 배경색(사진 없을 때 이니셜 표시)
-                             litCurrentAvatar : 코드비하인드에서 현재 아바타 이미지 또는 이니셜을 출력한다. --%>
-                        <div class="w-14 h-14 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-                            <asp:Literal ID="litCurrentAvatar" runat="server"></asp:Literal>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <%-- 파일 업로드 컨트롤
-                                 ID="fuPhoto" : 코드비하인드에서 fuPhoto.HasFile 로 파일 선택 여부를 확인하고,
-                                                fuPhoto.SaveAs() 또는 fuPhoto.PostedFile 로 파일을 처리한다.
-                                 runat="server" → 서버 컨트롤 --%>
-                            <asp:FileUpload ID="fuPhoto" runat="server" CssClass="text-xs text-gray-500 dark:text-slate-400" />
-                            <%-- 사진 업로드 버튼
-                                 ID="btnUploadPhoto" : 코드비하인드의 btnUploadPhoto_Click 이벤트와 연결된다.
-                                 OnClick="btnUploadPhoto_Click" : 클릭 시 서버에서 파일 저장 처리를 수행한다.
-                                 runat="server" → 서버 컨트롤 --%>
-                            <asp:Button ID="btnUploadPhoto" runat="server" OnClick="btnUploadPhoto_Click"
-                                CssClass="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm cursor-pointer transition-all" />
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <%-- ===== 테마(다크모드) 전환 카드 ===== --%>
             <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
@@ -213,9 +176,9 @@
                 <%-- 통계 섹션 제목: 코드비하인드에서 litStatsLabel.Text 로 설정 --%>
                 <h2 class="text-xl font-bold mb-6 dark:text-white"><asp:Literal ID="litStatsLabel" runat="server"></asp:Literal></h2>
 
-                <%-- 통계 숫자 카드 3개: grid-cols-3 으로 3열 배치
-                     sm:grid-cols-3 : 640px 이상에서 3열 배치, 그 미만은 1열 --%>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <%-- 통계 숫자 카드 2개: sm:grid-cols-2 로 2열 배치
+                     (클릭 횟수 카드 제거로 2개 카드만 표시) --%>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
 
                     <%-- 총 검색 횟수 카드
                          litTotalSearch : 코드비하인드에서 검색 횟수 숫자를 설정한다.
@@ -225,15 +188,7 @@
                         <p class="text-sm text-gray-500 dark:text-slate-400 mt-1"><asp:Literal ID="litTotalSearchLbl" runat="server"></asp:Literal></p>
                     </div>
 
-                    <%-- 총 클릭 횟수 카드
-                         litTotalClick : 코드비하인드에서 클릭 횟수 숫자를 설정한다.
-                         litTotalClickLbl : "총 클릭 횟수" 레이블 텍스트를 설정한다. --%>
-                    <div class="bg-gray-50 dark:bg-slate-700 rounded-2xl p-5 text-center">
-                        <p class="text-3xl font-black text-purple-500"><asp:Literal ID="litTotalClick" runat="server"></asp:Literal></p>
-                        <p class="text-sm text-gray-500 dark:text-slate-400 mt-1"><asp:Literal ID="litTotalClickLbl" runat="server"></asp:Literal></p>
-                    </div>
-
-                    <%-- 최다 검색 카테고리 카드
+                    <%-- 최다 검색 키워드 카드
                          litTopCategory : 코드비하인드에서 가장 많이 검색한 카테고리명을 설정한다.
                          litTopCategoryLbl : "최다 카테고리" 레이블 텍스트를 설정한다. --%>
                     <div class="bg-gray-50 dark:bg-slate-700 rounded-2xl p-5 text-center">
@@ -268,6 +223,117 @@
                 </asp:Repeater>
             </div>
 
+            <%-- ===== 내 검색 성향 카드 (엔진별 누적 점수 시각화) ===== --%>
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold dark:text-white flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5 text-blue-500"></i>
+                        <asp:Literal ID="litEngineScoresLbl" runat="server"></asp:Literal>
+                    </h2>
+                    <%-- 성향 초기화 버튼: 엔진 점수를 0으로 리셋 --%>
+                    <button type="button" onclick="resetEngineScores()"
+                        class="px-4 py-2 text-sm bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-all font-medium">
+                        <asp:Literal ID="litResetScoresBtn" runat="server"></asp:Literal>
+                    </button>
+                </div>
+                <%-- HiddenField로 서버 점수를 JS에 전달 --%>
+                <asp:HiddenField ID="hdnEngineScores" runat="server" />
+                <%-- 데이터 없을 때 안내 (JS가 total=0이면 이 메시지를 표시) --%>
+                <p id="engNoData" class="text-sm text-gray-400 dark:text-slate-500 py-4 hidden">
+                    아직 검색 데이터가 없습니다. 검색 후 성향이 자동으로 쌓입니다.
+                </p>
+                <%-- 엔진별 게이지 바 (JS가 hdnEngineScores 값을 읽어 채운다) --%>
+                <div class="space-y-4" id="engineBars">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-gray-700 dark:text-slate-300">Google</span>
+                            <span class="text-gray-400 dark:text-slate-500 text-xs" id="gPct">—</span>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-slate-700 rounded-full h-2.5">
+                            <div id="gBar" class="bg-blue-500 rounded-full h-2.5 transition-all duration-700" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-gray-700 dark:text-slate-300">Naver</span>
+                            <span class="text-gray-400 dark:text-slate-500 text-xs" id="nPct">—</span>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-slate-700 rounded-full h-2.5">
+                            <div id="nBar" class="bg-green-500 rounded-full h-2.5 transition-all duration-700" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-gray-700 dark:text-slate-300">Daum</span>
+                            <span class="text-gray-400 dark:text-slate-500 text-xs" id="dPct">—</span>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-slate-700 rounded-full h-2.5">
+                            <div id="dBar" class="bg-orange-400 rounded-full h-2.5 transition-all duration-700" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-4">
+                    <asp:Literal ID="litEngineScoreDesc" runat="server"></asp:Literal>
+                </p>
+            </div>
+
+            <%-- ===== 최근 검색어 카드 (구 마이페이지 콘텐츠) ===== --%>
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="font-semibold dark:text-white flex items-center gap-2 text-lg">
+                        <i data-lucide="clock" class="w-5 h-5 text-blue-500"></i>
+                        <asp:Literal ID="litRecentSearchLbl" runat="server"></asp:Literal>
+                    </h2>
+                    <a href="SearchResults.aspx" class="text-xs text-blue-500 hover:underline font-semibold">
+                        <asp:Literal ID="litViewAllSearch" runat="server"></asp:Literal>
+                    </a>
+                </div>
+                <%-- 검색 기록 없을 때 표시 --%>
+                <asp:Literal ID="litNoRecentSearch" runat="server" Visible="false"></asp:Literal>
+                <asp:Repeater ID="rptRecentSearch" runat="server">
+                    <ItemTemplate>
+                        <div class="flex items-center justify-between py-2 border-b dark:border-slate-700 last:border-0">
+                            <a href='SearchResults.aspx?q=<%# Server.UrlEncode(Eval("Query").ToString()) %>'
+                               class="text-sm text-gray-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center gap-2">
+                                <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 flex-shrink-0"></i>
+                                <%# Eval("Query") %>
+                            </a>
+                            <span class="text-xs text-gray-400 dark:text-slate-500 flex-shrink-0">
+                                <%# Convert.ToDateTime(Eval("SearchTime")).ToString("MM.dd") %>
+                            </span>
+                        </div>
+                    </ItemTemplate>
+                </asp:Repeater>
+            </div>
+
+            <%-- ===== 내 게시글 카드 (구 마이페이지 콘텐츠) ===== --%>
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="font-semibold dark:text-white flex items-center gap-2 text-lg">
+                        <i data-lucide="file-text" class="w-5 h-5 text-purple-500"></i>
+                        <asp:Literal ID="litMyPostsLbl" runat="server"></asp:Literal>
+                    </h2>
+                    <a href="Community.aspx" class="text-xs text-blue-500 hover:underline font-semibold">
+                        <asp:Literal ID="litViewAllPosts" runat="server"></asp:Literal>
+                    </a>
+                </div>
+                <%-- 게시글 없을 때 표시 --%>
+                <asp:Literal ID="litNoMyPosts" runat="server" Visible="false"></asp:Literal>
+                <asp:Repeater ID="rptMyPosts" runat="server">
+                    <ItemTemplate>
+                        <div class="flex items-center justify-between py-2 border-b dark:border-slate-700 last:border-0">
+                            <a href='CommunityView.aspx?no=<%# Eval("No") %>'
+                               class="text-sm text-gray-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors truncate max-w-xs">
+                                <%# Eval("Title") %>
+                            </a>
+                            <span class="text-xs text-gray-400 dark:text-slate-500 flex-shrink-0 ml-2">
+                                <%# Convert.ToDateTime(Eval("UploadTime")).ToString("MM.dd") %>
+                            </span>
+                        </div>
+                    </ItemTemplate>
+                </asp:Repeater>
+            </div>
+
             <%-- ===== 검색 기록 삭제 카드 ===== --%>
             <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
                 <div class="flex items-center justify-between">
@@ -284,26 +350,6 @@
                     <button type="button" onclick="openDeleteModal('search')"
                         class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold cursor-pointer transition-all active:scale-95">
                         <asp:Literal ID="litDelSearchBtn" runat="server"></asp:Literal>
-                    </button>
-                </div>
-            </div>
-
-            <%-- ===== 클릭 기록 삭제 카드 ===== --%>
-            <div class="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <%-- 클릭 기록 삭제 제목: 코드비하인드에서 litDelClickLabel.Text 로 설정 --%>
-                        <h2 class="text-xl font-bold dark:text-white"><asp:Literal ID="litDelClickLabel" runat="server"></asp:Literal></h2>
-                        <%-- 클릭 기록 삭제 부제목: 코드비하인드에서 litDelClickSub.Text 로 설정 --%>
-                        <p class="text-gray-500 dark:text-slate-400 text-sm mt-1"><asp:Literal ID="litDelClickSub" runat="server"></asp:Literal></p>
-                    </div>
-                    <%-- 클릭 기록 삭제 버튼 (일반 HTML 버튼)
-                         onclick="openDeleteModal('click')" : JavaScript 의 openDeleteModal() 에 'click' 인자를 전달하여
-                                                              클릭 기록 삭제 모달을 열어준다.
-                         litDelClickBtn : 코드비하인드에서 버튼 텍스트를 설정한다. --%>
-                    <button type="button" onclick="openDeleteModal('click')"
-                        class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold cursor-pointer transition-all active:scale-95">
-                        <asp:Literal ID="litDelClickBtn" runat="server"></asp:Literal>
                     </button>
                 </div>
             </div>
@@ -482,11 +528,37 @@
         var delSearchTitle  = '<%= Lang.Get("set.delSearch") %>';
         var delClickTitle   = '<%= Lang.Get("set.delClick") %>';
 
+        // ===== 엔진 점수 초기화 =====
+        // 서버 인라인 표현식으로 정수 퍼센트를 JS 숫자 리터럴로 직접 삽입
+        // (HiddenField / JSON 파싱 / DbMan 상태에 의존하지 않음)
+        var _engGP = <%= EngGPct %>;
+        var _engNP = <%= EngNPct %>;
+        var _engDP = <%= EngDPct %>;
+        (function () {
+            var bars   = document.getElementById('engineBars');
+            var noData = document.getElementById('engNoData');
+            if (<%= EngHasData ? "true" : "false" %>) {
+                document.getElementById('gPct').textContent = _engGP + '%';
+                document.getElementById('nPct').textContent = _engNP + '%';
+                document.getElementById('dPct').textContent = _engDP + '%';
+                // hidden 상태에서도 style.width는 DOM에 기록된다
+                var gB = document.getElementById('gBar');
+                var nB = document.getElementById('nBar');
+                var dB = document.getElementById('dBar');
+                if (gB) gB.style.width = _engGP + '%';
+                if (nB) nB.style.width = _engNP + '%';
+                if (dB) dB.style.width = _engDP + '%';
+            } else {
+                bars.classList.add('hidden');
+                noData.classList.remove('hidden');
+            }
+        })();
+
         // ===== switchTab(tab) =====
         // 탭 버튼 클릭 시 호출된다.
-        // tab: 'general'(일반) 또는 'privacy'(개인정보)
+        // tab: 'general' 또는 'privacy'
         // 선택된 탭의 패널을 표시하고 나머지를 숨긴다.
-        // 탭 버튼의 활성/비활성 스타일(파란 밑줄 등)도 함께 전환한다.
+        // privacy 탭 열 때 엔진 게이지 바를 0%→target으로 애니메이션한다.
         function switchTab(tab) {
             document.getElementById('panelGeneral').classList.toggle('hidden', tab !== 'general');
             document.getElementById('panelPrivacy').classList.toggle('hidden', tab !== 'privacy');
@@ -496,6 +568,19 @@
             document.getElementById('tabPrivacy').className = tab === 'privacy'
                 ? 'tab-btn px-6 py-3 font-bold text-sm border-b-2 border-blue-500 text-blue-500 dark:text-blue-400 transition-all'
                 : 'tab-btn px-6 py-3 font-bold text-sm border-b-2 border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-all';
+            // 내 정보 탭이 열리면 0%→target 트랜지션 애니메이션 재생
+            // IIFE가 이미 target 너비를 설정해 두었으므로 잠깐 0%로 리셋 후 복원한다.
+            if (tab === 'privacy' && _engGP + _engNP + _engDP > 0) {
+                ['gBar','nBar','dBar'].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.style.width = '0%';
+                });
+                setTimeout(function () {
+                    document.getElementById('gBar').style.width = _engGP + '%';
+                    document.getElementById('nBar').style.width = _engNP + '%';
+                    document.getElementById('dBar').style.width = _engDP + '%';
+                }, 50);
+            }
         }
 
         // ===== openDeleteModal(target) =====
@@ -601,5 +686,27 @@
 
         // 모달 배경 클릭 시 탈퇴 모달을 닫는다
         document.getElementById('withdrawModal').addEventListener('click', function (e) { if (e.target === this) closeWithdrawModal(); });
+
+        // ===== resetEngineScores() =====
+        // 엔진 성향 점수를 0으로 초기화하는 AJAX 호출
+        function resetEngineScores() {
+            if (!confirm('<%= Lang.Get("set.cancel") == "Cancel" ? "Reset your search preferences?" : "검색 성향을 초기화하시겠습니까?" %>')) return;
+            fetch('Settings.aspx?action=resetScores')
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.result === 'ok') {
+                        // 전역 변수 초기화 → 다음 탭 재진입 시에도 0% 유지
+                        _engGP = 0; _engNP = 0; _engDP = 0;
+                        ['gBar','nBar','dBar'].forEach(function(id) { document.getElementById(id).style.width = '0%'; });
+                        ['gPct','nPct','dPct'].forEach(function(id) { document.getElementById(id).textContent = '—'; });
+                        // 점수 초기화 후 데이터 없음 상태로 전환
+                        document.getElementById('engineBars').classList.add('hidden');
+                        document.getElementById('engNoData').classList.remove('hidden');
+                    }
+                });
+        }
+
+        // lucide 아이콘 초기화 (동적으로 추가된 data-lucide 아이콘 포함)
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     </script>
 </asp:Content>

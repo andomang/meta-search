@@ -345,6 +345,63 @@ public class MemberDao
     }
 
     /// <summary>
+    /// 회원의 엔진별 누적 점수를 members 테이블에서 조회한다.
+    /// SearchResults.aspx에서 개인화 검색 결과 순서 결정에 사용된다.
+    /// </summary>
+    public void GetEngineScores(string userId, out double gScore, out double nScore, out double dScore)
+    {
+        gScore = 0; nScore = 0; dScore = 0;
+        string sql = string.Format(
+            "SELECT GoogleScore, NaverScore, DaumScore FROM members WHERE userid = '{0}'", userId);
+        try
+        {
+            SqlDataReader dr = DbMan.ExecuteReader(sql);
+            if (dr.Read())
+            {
+                gScore = dr["GoogleScore"] != DBNull.Value ? Convert.ToDouble(dr["GoogleScore"]) : 0;
+                nScore = dr["NaverScore"]  != DBNull.Value ? Convert.ToDouble(dr["NaverScore"])  : 0;
+                dScore = dr["DaumScore"]   != DBNull.Value ? Convert.ToDouble(dr["DaumScore"])   : 0;
+            }
+            dr.Close();
+        }
+        finally { DbMan.Close(); }
+    }
+
+    /// <summary>
+    /// 검색 1회마다 대표 엔진 +0.1, 나머지 -0.05를 적용한다.
+    /// CASE WHEN으로 하한 0을 보장하여 음수 점수가 생기지 않는다.
+    /// </summary>
+    public void ApplyEngineScore(string userId, double gDelta, double nDelta, double dDelta)
+    {
+        // InvariantCulture: 소수점 구분자가 지역마다 다른 문제 방지
+        string g = gDelta.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        string n = nDelta.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        string d = dDelta.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        string sql = string.Format(
+            "UPDATE members SET " +
+            "GoogleScore = CASE WHEN ISNULL(GoogleScore,0)+{0} < 0 THEN 0 ELSE ISNULL(GoogleScore,0)+{0} END, " +
+            "NaverScore  = CASE WHEN ISNULL(NaverScore, 0)+{1} < 0 THEN 0 ELSE ISNULL(NaverScore, 0)+{1} END, " +
+            "DaumScore   = CASE WHEN ISNULL(DaumScore,  0)+{2} < 0 THEN 0 ELSE ISNULL(DaumScore,  0)+{2} END " +
+            "WHERE userid = '{3}'",
+            g, n, d, userId);
+        try { DbMan.ExecuteNonQuery(sql); }
+        finally { DbMan.Close(); }
+    }
+
+    /// <summary>
+    /// 회원의 엔진 점수를 모두 0으로 초기화한다.
+    /// Settings.aspx "성향 초기화" 버튼에서 호출된다.
+    /// </summary>
+    public void ResetEngineScores(string userId)
+    {
+        string sql = string.Format(
+            "UPDATE members SET GoogleScore = 0, NaverScore = 0, DaumScore = 0 WHERE userid = '{0}'",
+            userId);
+        try { DbMan.ExecuteNonQuery(sql); }
+        finally { DbMan.Close(); }
+    }
+
+    /// <summary>
     /// 문자열을 MD5 해시값(대문자 HEX 문자열)으로 변환하는 내부 헬퍼 메서드.
     /// 비밀번호를 DB에 저장하거나 비교할 때 사용된다.
     /// MD5는 단방향 암호화(복호화 불가)이므로 원본 비밀번호를 알 수 없다.

@@ -173,7 +173,7 @@ public static class Lang
             // =====================
             case "set.title":       return en ? "Settings"       : "설정";                          // 페이지 제목
             case "set.tabGeneral":  return en ? "General"        : "일반";                          // 일반 탭 이름
-            case "set.tabPrivacy":  return en ? "Privacy"        : "개인정보";                      // 개인정보 탭 이름
+            case "set.tabPrivacy":  return en ? "My Info"        : "내 정보";                       // 내 정보 탭 이름 (마이페이지 통합)
             case "set.theme":       return en ? "Display Theme"  : "화면 테마";                    // 테마 설정 제목
             case "set.themeSub":    return en ? "Toggle current theme." : "현재 테마 상태를 전환합니다."; // 테마 설명
             case "set.themeBtn":    return en ? "Toggle"         : "테마 변경";                    // 테마 변경 버튼
@@ -187,6 +187,16 @@ public static class Lang
             case "set.email":       return en ? "Email"          : "이메일";                       // 이메일 입력 레이블
             case "set.changePw":    return en ? "Change Password": "비밀번호 변경";                // 비밀번호 변경 링크
             case "set.updateBtn":   return en ? "Update"         : "정보 업데이트";                // 정보 업데이트 버튼
+            // 내 검색 성향 카드
+            case "set.engineScores":    return en ? "Search Preferences" : "내 검색 성향";         // 엔진 점수 섹션 제목
+            case "set.resetScores":     return en ? "Reset"              : "성향 초기화";           // 초기화 버튼
+            case "set.engineScoreDesc": return en ? "Scores accumulate as you search. Higher score = shown first." : "검색할수록 점수가 쌓이며, 높은 점수의 엔진이 검색 결과 상단에 더 많이 노출됩니다.";
+            // 최근 검색어·내 게시글 카드
+            case "set.recentSearch":    return en ? "Recent Searches"    : "최근 검색어";           // 최근 검색어 섹션 제목
+            case "set.myPosts":         return en ? "My Posts"           : "내 게시글";            // 내 게시글 섹션 제목
+            case "set.viewAll":         return en ? "View all"           : "전체 보기";             // 전체 보기 링크
+            case "set.noSearch":        return en ? "No search history." : "검색 기록이 없습니다."; // 검색 기록 없을 때
+            case "set.noPosts":         return en ? "No posts yet."      : "작성한 게시글이 없습니다."; // 게시글 없을 때
             case "set.stats":       return en ? "My Search Stats": "내 검색 통계";                 // 검색 통계 섹션 제목
             case "set.totalSearch": return en ? "Total Searches" : "총 검색 횟수";                 // 통계 항목
             case "set.totalClick":  return en ? "Total Clicks"   : "총 클릭 횟수";                 // 통계 항목

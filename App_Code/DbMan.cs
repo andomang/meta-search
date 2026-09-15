@@ -24,7 +24,7 @@ public class DbMan
     // 데이터베이스 연결 문자열 (Connection String)
     // 로컬 SQL Server Express 인스턴스에 meta 계정으로 접속
     // (주석 처리된 윗줄은 외부 호스팅 서버용 연결 문자열 - 배포 시 교체하여 사용)
-    //static string dataSource = @"Data Source=db49734.databaseasp.net;Initial Catalog=db49734;User ID=db49734;Password=d1k2s3123?";
+    //static string dataSource = @"Data Source=dxmang.p-e.kr:1433;Initial Catalog=meta;User ID=meta;Password=metapass";
     static string dataSource = @"Server=(local)\SQLEXPRESS; uid=meta; pwd=metapass; database=meta";
 
     // 앱 전체에서 공유하는 SqlConnection 객체 (static이므로 한 개만 존재)

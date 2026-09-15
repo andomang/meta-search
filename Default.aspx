@@ -71,6 +71,7 @@
                      absolute right-3 top-3 bottom-3 : 입력창 오른쪽 안쪽에 고정
                      rounded-full : 완전 둥근 버튼 --%>
                 <asp:Button ID="btnSearch" runat="server" OnClick="btnSearch_Click"
+                    OnClientClick="showPageLoading();"
                     CssClass="absolute right-3 top-3 bottom-3 px-8 bg-slate-900 dark:bg-blue-600 text-white rounded-full font-bold hover:bg-blue-800 dark:hover:bg-blue-500 transition-all cursor-pointer active:scale-95 shadow-lg shadow-blue-200 dark:shadow-none" />
 
                 <%-- ===== 최근 검색어 드롭다운 =====
@@ -137,90 +138,87 @@
         </div>
     </div>
 
+    <%-- 전체화면 로딩 오버레이: 검색 네비게이션 시 표시 --%>
+    <div id="pageLoadingOverlay" class="hidden fixed inset-0 z-[9999] bg-white dark:bg-slate-950 flex flex-col items-center justify-center gap-6 transition-opacity">
+        <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <%-- 스켈레톤 바 3줄 --%>
+        <div class="w-full max-w-xl px-6 space-y-3">
+            <div class="h-5 bg-gray-100 dark:bg-slate-800 rounded-full animate-pulse"></div>
+            <div class="h-4 bg-gray-100 dark:bg-slate-800 rounded-full w-3/4 animate-pulse"></div>
+            <div class="h-4 bg-gray-100 dark:bg-slate-800 rounded-full w-1/2 animate-pulse"></div>
+        </div>
+    </div>
+
     <%-- ===== 인라인 JavaScript =====
          검색창 포커스 시 검색 기록 드롭다운을 제어하는 클라이언트 스크립트 --%>
     <script>
         // ===== 서버에서 주입되는 다국어 문자열 =====
-        // Lang.Get("...") : 서버에서 현재 언어 설정에 맞는 문자열을 반환한다 (<= ... %> 는 서버 출력 표현식)
-        var recentLabel      = '<%= Lang.Get("search.recent") %>';      // "최근 검색어" 레이블
-        var noHistoryLabel   = '<%= Lang.Get("search.noHistory") %>';   // 기록 없음 메시지
-        var searchPlaceholder = '<%= Lang.Get("search.placeholder") %>'; // 검색창 placeholder 텍스트
+        var recentLabel      = '<%= Lang.Get("search.recent") %>';
+        var noHistoryLabel   = '<%= Lang.Get("search.noHistory") %>';
+        var searchPlaceholder = '<%= Lang.Get("search.placeholder") %>';
 
-        // 서버에서 받은 텍스트를 해당 HTML 요소에 적용
         document.getElementById('litRecentLabel').textContent = recentLabel;
         document.getElementById('historyEmpty').textContent   = noHistoryLabel;
 
-        // ===== DOM 요소 참조 =====
-        // txtSearch.ClientID : 서버 컨트롤 ID가 ASP.NET에 의해 변환된 실제 HTML id를 얻는다
         const searchInput  = document.getElementById('<%= txtSearch.ClientID %>');
-        searchInput.placeholder = searchPlaceholder; // placeholder 텍스트 적용
+        searchInput.placeholder = searchPlaceholder;
 
-        const dropdown    = document.getElementById('historyDropdown'); // 드롭다운 전체 컨테이너
-        const historyList  = document.getElementById('historyList');    // 기록 목록 <ul>
-        const historyEmpty = document.getElementById('historyEmpty');   // 기록 없음 메시지
+        const dropdown    = document.getElementById('historyDropdown');
+        const historyList  = document.getElementById('historyList');
+        const historyEmpty = document.getElementById('historyEmpty');
 
-        // ===== 이벤트 리스너 =====
-        // 입력창에 포커스가 오면 기록 목록을 로드하여 드롭다운을 표시한다
+        // ===== showPageLoading() =====
+        // 전체화면 오버레이를 표시한다. 검색 네비게이션 시작 시 항상 호출한다.
+        function showPageLoading() {
+            document.getElementById('pageLoadingOverlay').classList.remove('hidden');
+        }
+
         searchInput.addEventListener('focus', function () { loadHistory(); });
 
-        // 검색박스 바깥 클릭 시 드롭다운을 숨긴다
         document.addEventListener('click', function (e) {
             if (!document.getElementById('searchBox').contains(e.target)) dropdown.classList.add('hidden');
         });
 
-        // Enter 키 입력 시 검색결과 페이지로 이동한다
+        // Enter 키 입력 → 오버레이 표시 후 이동
         searchInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
-                e.preventDefault(); // 폼 기본 제출 방지
+                e.preventDefault();
                 var q = searchInput.value.trim();
-                if (q) location.href = 'SearchResults.aspx?q=' + encodeURIComponent(q);
+                if (q) { showPageLoading(); location.href = 'SearchResults.aspx?q=' + encodeURIComponent(q); }
             }
         });
 
-        // ===== loadHistory() =====
-        // SearchResults.aspx?action=getHistory 에 Ajax 요청을 보내 최근 검색 기록을 가져온다.
-        // 응답은 JSON 배열 (예: [{ query: "검색어" }, ...]) 형태
         function loadHistory() {
             fetch('SearchResults.aspx?action=getHistory')
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
-                    historyList.innerHTML = ''; // 기존 목록 초기화
+                    historyList.innerHTML = '';
                     if (!data || data.length === 0) {
-                        // 기록이 없으면 "기록 없음" 메시지를 표시하고 목록은 숨긴다
                         historyEmpty.classList.remove('hidden');
                         historyList.classList.add('hidden');
                     } else {
-                        // 기록이 있으면 "기록 없음" 메시지를 숨기고 목록을 표시한다
                         historyEmpty.classList.add('hidden');
                         historyList.classList.remove('hidden');
-                        // 각 기록 항목을 <li> 요소로 생성하여 목록에 추가
                         data.forEach(function (item) {
                             var li = document.createElement('li');
                             li.className = 'flex items-center justify-between px-4 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer';
-                            // 검색어 텍스트 + 시계 아이콘, 삭제(X) 버튼으로 구성된 HTML 생성
-                            li.innerHTML = '<span class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300 flex-1 truncate search-query"><svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' + escapeHtml(item.query) + '</span><button class="delete-btn ml-2 text-gray-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 flex-shrink-0" data-query="' + escapeHtml(item.query) + '"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
-                            // 검색어 클릭 → 검색결과 페이지로 이동
-                            li.querySelector('.search-query').addEventListener('click', function () { location.href = 'SearchResults.aspx?q=' + encodeURIComponent(item.query); });
-                            // 삭제 버튼 클릭 → deleteHistory() 호출
+                            li.innerHTML = '<span class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-300 flex-1 truncate search-query"><svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' + escapeHtml(item.query) + '</span><button type="button" class="delete-btn ml-2 text-gray-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 flex-shrink-0" data-query="' + escapeHtml(item.query) + '"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+                            // li 전체 클릭 → 오버레이 표시 후 이동
+                            li.addEventListener('click', function () { showPageLoading(); location.href = 'SearchResults.aspx?q=' + encodeURIComponent(item.query); });
                             li.querySelector('.delete-btn').addEventListener('click', function (e) { e.stopPropagation(); deleteHistory(item.query, li); });
                             historyList.appendChild(li);
                         });
                     }
-                    dropdown.classList.remove('hidden'); // 드롭다운 표시
-                }).catch(function () { dropdown.classList.add('hidden'); }); // 오류 시 드롭다운 숨김
+                    dropdown.classList.remove('hidden');
+                }).catch(function () { dropdown.classList.add('hidden'); });
         }
 
-        // ===== deleteHistory(query, liElement) =====
-        // 특정 검색어 기록을 서버에서 삭제하고 DOM 에서도 해당 <li> 를 제거한다.
-        // query     : 삭제할 검색어 문자열
-        // liElement : 화면에서 제거할 <li> DOM 요소
         function deleteHistory(query, liElement) {
             fetch('SearchResults.aspx?action=deleteHistory&q=' + encodeURIComponent(query))
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (data.result === 'ok') {
-                        liElement.remove(); // DOM 에서 항목 제거
-                        // 모든 항목 삭제 후 목록이 비었으면 "기록 없음" 메시지 표시
+                        liElement.remove();
                         if (historyList.children.length === 0) {
                             historyEmpty.classList.remove('hidden');
                             historyList.classList.add('hidden');
@@ -229,9 +227,6 @@
                 });
         }
 
-        // ===== escapeHtml(str) =====
-        // XSS(크로스사이트 스크립팅) 방지를 위해 HTML 특수문자를 이스케이프한다.
-        // & → &amp;  < → &lt;  > → &gt;  " → &quot;
         function escapeHtml(str) { return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     </script>
 </asp:Content>

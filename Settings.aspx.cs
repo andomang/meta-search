@@ -13,9 +13,8 @@ using System.Web.UI;
 ///   - 다크 모드 토글: 쿠키·세션·DB(members.DarkMode)를 동기화한다.
 ///   - 언어 변경(한국어/영어): 쿠키·세션·DB(members.Language)를 동기화한다.
 ///   - 내 정보 수정: members 테이블의 Name, Nickname, Email 을 UPDATE 한다.
-///   - 프로필 사진 업로드: ~/uploads/ 폴더에 파일을 저장하고 DB를 업데이트한다.
-///   - 통계 조회: SearchHistory, SearchClickHistory 테이블에서 검색·클릭 건수를 집계한다.
-///   - AJAX 처리: action 쿼리스트링으로 비동기 요청(삭제/비밀번호 변경/회원 탈퇴)을 처리한다.
+///   - 통계 조회: SearchHistory 테이블에서 검색 건수·최다 AI 키워드를 집계한다.
+///   - AJAX 처리: action 쿼리스트링으로 비동기 요청(검색기록삭제/비밀번호 변경/회원 탈퇴)을 처리한다.
 /// </summary>
 public partial class Settings : System.Web.UI.Page
 {
@@ -42,7 +41,7 @@ public partial class Settings : System.Web.UI.Page
         }
 
         // 최초 페이지 로드(PostBack 이 아닌 경우)에만 DB에서 데이터를 읽어옴
-        if (!IsPostBack) { LoadUserData(); LoadStats(); SetLangButtons(); }
+        if (!IsPostBack) { LoadUserData(); LoadStats(); LoadRecentSearches(); LoadMyPosts(); LoadEngineScores(); SetLangButtons(); }
 
         // 현재 다크 모드 상태를 세션에서 읽어 ON/OFF 표시 텍스트 결정
         bool isDark = Session["IsDark"] != null && (bool)Session["IsDark"];
@@ -50,32 +49,6 @@ public partial class Settings : System.Web.UI.Page
         string off = "<span class='text-gray-400 font-bold uppercase'>" + Lang.Get("set.themeOff") + "</span>";
         // 다크 모드 상태에 따라 ON 또는 OFF 문구를 litThemeStatus 에 표시
         litThemeStatus.Text = isDark ? on : off;
-
-        // 프로필 사진 섹션의 레이블·부제목·버튼 문구를 현재 언어에 맞게 설정
-        litProfilePhotoLabel.Text = Lang.Get("set.profilePhoto");
-        litProfilePhotoSub.Text   = Lang.Get("set.profilePhotoSub");
-        btnUploadPhoto.Text       = Lang.Get("set.photoBtn");
-
-        // 현재 프로필 사진 또는 닉네임 첫글자 표시
-        try
-        {
-            // members 테이블에서 현재 로그인 사용자의 닉네임과 프로필 이미지 파일명을 조회
-            SqlDataReader rp = DbMan.ExecuteReader(
-                string.Format("SELECT Nickname, ProfileImg FROM members WHERE userid='{0}'", Session["UserID"]));
-            if (rp.Read())
-            {
-                string pImg = rp["ProfileImg"] != DBNull.Value ? rp["ProfileImg"].ToString() : "";
-                string nick = rp["Nickname"].ToString().Trim();
-
-                // 프로필 이미지가 있으면 <img> 태그로, 없으면 닉네임 첫 글자(대문자)로 아바타 표시
-                litCurrentAvatar.Text = !string.IsNullOrEmpty(pImg)
-                    ? string.Format("<img src='uploads/{0}' class='w-full h-full object-cover' />", pImg)
-                    : (nick.Length > 0 ? nick.Substring(0, 1).ToUpper() : "?");
-            }
-            // 리더 닫기 및 DB 연결 해제
-            rp.Close(); DbMan.Close();
-        }
-        catch { DbMan.Close(); }
 
         // 설정 페이지 전반의 탭·섹션·버튼·모달 문구를 현재 언어에 맞게 바인딩
         litPageTitle.Text = Lang.Get("set.title");
@@ -94,19 +67,24 @@ public partial class Settings : System.Web.UI.Page
         btnUpdate.Text = Lang.Get("set.updateBtn");
         litStatsLabel.Text = Lang.Get("set.stats");
         litTotalSearchLbl.Text = Lang.Get("set.totalSearch");
-        litTotalClickLbl.Text = Lang.Get("set.totalClick");
-        litTopCategoryLbl.Text = Lang.Get("set.topCategory");
+        // 최다 키워드 레이블 (카테고리→키워드 용어 통일 반영)
+        litTopCategoryLbl.Text = Lang.Get("set.cancel") == "Cancel" ? "Top Keyword" : "최다 키워드";
         litTop5Lbl.Text = Lang.Get("set.top5");
+        // 내 검색 성향 카드
+        litEngineScoresLbl.Text  = Lang.Get("set.engineScores");
+        litResetScoresBtn.Text   = Lang.Get("set.resetScores");
+        litEngineScoreDesc.Text  = Lang.Get("set.engineScoreDesc");
+        // 최근 검색어 카드
+        litRecentSearchLbl.Text  = Lang.Get("set.recentSearch");
+        litViewAllSearch.Text    = Lang.Get("set.viewAll");
+        // 내 게시글 카드
+        litMyPostsLbl.Text       = Lang.Get("set.myPosts");
+        litViewAllPosts.Text     = Lang.Get("set.viewAll");
 
         // 검색 기록 삭제 섹션 문구 바인딩
         litDelSearchLabel.Text = Lang.Get("set.delSearch");
         litDelSearchSub.Text = Lang.Get("set.delSearchSub");
         litDelSearchBtn.Text = Lang.Get("set.delBtn");
-
-        // 클릭 기록 삭제 섹션 문구 바인딩
-        litDelClickLabel.Text = Lang.Get("set.delClick");
-        litDelClickSub.Text = Lang.Get("set.delClickSub");
-        litDelClickBtn.Text = Lang.Get("set.delBtn");
 
         // 회원 탈퇴 섹션 문구 바인딩
         litWithdrawLabel.Text = Lang.Get("set.withdraw");
@@ -161,9 +139,9 @@ public partial class Settings : System.Web.UI.Page
                 string target = Request.QueryString["target"];
                 string range = Request.QueryString["range"];
 
-                // target 값에 따라 삭제할 테이블과 날짜 컬럼명을 결정
-                string table = target == "click" ? "SearchClickHistory" : "SearchHistory";
-                string timeCol = target == "click" ? "ClickTime" : "SearchTime";
+                // SearchHistory 테이블만 사용 (SearchClickHistory 제거됨)
+                string table = "SearchHistory";
+                string timeCol = "SearchTime";
 
                 // 기간 문자열을 SQL DATEADD 조건식으로 변환
                 string condition = GetDateCondition(range);
@@ -211,6 +189,23 @@ public partial class Settings : System.Web.UI.Page
                     Response.Write("{\"result\":\"ok\"}");
                 }
             }
+            else if (action == "resetScores")
+            {
+                // 엔진 점수(GoogleScore, NaverScore, DaumScore)를 0으로 초기화
+                new MemberDao().ResetEngineScores(userID);
+                Response.Write("{\"result\":\"ok\"}");
+            }
+            else if (action == "debugScores")
+            {
+                // 디버그: DB의 점수 원시값을 JSON으로 반환 (브라우저에서 직접 확인용)
+                double g, n, d;
+                try { new MemberDao().GetEngineScores(userID, out g, out n, out d); }
+                catch { g = -1; n = -1; d = -1; }
+                Response.Write(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "{{\"g\":{0:F4},\"n\":{1:F4},\"d\":{2:F4},\"total\":{3:F4}}}",
+                    g, n, d, g + n + d));
+            }
             else if (action == "withdraw")
             {
                 // 쿼리스트링에서 탈퇴 확인용 비밀번호를 가져와 MD5 해시로 암호화
@@ -235,9 +230,6 @@ public partial class Settings : System.Web.UI.Page
                     // SearchHistory 테이블에서 해당 사용자의 검색 기록 삭제
                     DbMan.ExecuteNonQuery(string.Format("DELETE FROM SearchHistory WHERE UserID='{0}'", userID)); DbMan.Close();
 
-                    // SearchClickHistory 테이블에서 해당 사용자의 클릭 기록 삭제
-                    DbMan.ExecuteNonQuery(string.Format("DELETE FROM SearchClickHistory WHERE UserID='{0}'", userID)); DbMan.Close();
-
                     // Bbs 테이블에서 해당 사용자가 작성한 게시글 삭제
                     DbMan.ExecuteNonQuery(string.Format("DELETE FROM Bbs WHERE Author='{0}'", userID)); DbMan.Close();
 
@@ -256,6 +248,77 @@ public partial class Settings : System.Web.UI.Page
 
         // 응답 전송 완료 후 요청 처리 종료
         Response.End();
+    }
+
+    /// <summary>
+    /// 최근 검색어 TOP 5를 로드하여 rptRecentSearch에 바인딩한다.
+    /// 기록이 없으면 litNoRecentSearch를 표시한다.
+    /// </summary>
+    private void LoadRecentSearches()
+    {
+        string userID = Session["UserID"].ToString();
+        SearchDao dao = new SearchDao();
+        DataTable dt = dao.GetRecentSearches(userID, 5);
+        if (dt.Rows.Count == 0)
+        {
+            litNoRecentSearch.Text    = Lang.Get("set.noSearch");
+            litNoRecentSearch.Visible = true;
+        }
+        else
+        {
+            rptRecentSearch.DataSource = dt;
+            rptRecentSearch.DataBind();
+        }
+    }
+
+    /// <summary>
+    /// 내 게시글 최근 5개를 로드하여 rptMyPosts에 바인딩한다.
+    /// 게시글이 없으면 litNoMyPosts를 표시한다.
+    /// </summary>
+    private void LoadMyPosts()
+    {
+        string userID = Session["UserID"].ToString();
+        MemberDao dao = new MemberDao();
+        DataTable dt = dao.GetMyPosts(userID, 5);
+        if (dt.Rows.Count == 0)
+        {
+            litNoMyPosts.Text    = Lang.Get("set.noPosts");
+            litNoMyPosts.Visible = true;
+        }
+        else
+        {
+            rptMyPosts.DataSource = dt;
+            rptMyPosts.DataBind();
+        }
+    }
+
+    // ASPX 인라인 <%= %> 표현식이 읽는 프로퍼티
+    // 서버에서 정수 퍼센트로 미리 계산 → JS에 숫자 리터럴로 직접 삽입
+    protected int EngGPct  { get; private set; }
+    protected int EngNPct  { get; private set; }
+    protected int EngDPct  { get; private set; }
+    protected bool EngHasData { get; private set; }
+
+    /// <summary>
+    /// 엔진 누적 점수를 읽어 정수 퍼센트로 변환 후 protected 프로퍼티에 저장한다.
+    /// ASPX가 이 값을 &lt;%= EngGPct %&gt; 인라인 표현식으로 JS 숫자 리터럴에 직접 삽입한다.
+    /// HiddenField / JSON / DbMan 상태에 의존하지 않는다.
+    /// </summary>
+    private void LoadEngineScores()
+    {
+        string userID = Session["UserID"].ToString();
+        double gScore, nScore, dScore;
+        try { new MemberDao().GetEngineScores(userID, out gScore, out nScore, out dScore); }
+        catch { gScore = 0; nScore = 0; dScore = 0; }
+        double total = gScore + nScore + dScore;
+        if (total >= 0.01)
+        {
+            EngGPct   = (int)Math.Round(gScore / total * 100);
+            EngNPct   = (int)Math.Round(nScore / total * 100);
+            EngDPct   = (int)Math.Round(dScore / total * 100);
+            EngHasData = true;
+        }
+        // total < 0.01이면 기본값(0, false) 유지
     }
 
     /// <summary>
@@ -320,24 +383,17 @@ public partial class Settings : System.Web.UI.Page
         try
         {
             string uid = Session["UserID"].ToString();
+            var dao = new SearchDao();
 
-            // SearchHistory 테이블에서 총 검색 횟수 조회
-            SqlDataReader r1 = DbMan.ExecuteReader(string.Format("SELECT COUNT(*) FROM SearchHistory WHERE UserID='{0}'", uid));
-            litTotalSearch.Text = r1.Read() ? r1[0].ToString() : "0"; r1.Close(); DbMan.Close();
+            // SearchDao를 통해 총 검색 횟수 조회
+            litTotalSearch.Text = dao.GetTotalSearchCount(uid).ToString();
 
-            // SearchClickHistory 테이블에서 총 클릭 횟수 조회
-            SqlDataReader r2 = DbMan.ExecuteReader(string.Format("SELECT COUNT(*) FROM SearchClickHistory WHERE UserID='{0}'", uid));
-            litTotalClick.Text = r2.Read() ? r2[0].ToString() : "0"; r2.Close(); DbMan.Close();
+            // 최다 AI 분류 키워드 (Keyword 컬럼 기준, 예: "뉴스", "쇼핑")
+            litTopCategory.Text = dao.GetTopAIKeyword(uid);
 
-            // SearchHistory 테이블에서 가장 많이 검색한 카테고리를 TOP 1 으로 조회
-            SqlDataReader r3 = DbMan.ExecuteReader(string.Format(
-                "SELECT TOP 1 Category FROM SearchHistory WHERE UserID='{0}' GROUP BY Category ORDER BY COUNT(*) DESC", uid));
-            litTopCategory.Text = r3.Read() ? r3[0].ToString() : "-"; r3.Close(); DbMan.Close();
-
-            // SearchHistory 테이블에서 검색어별 검색 횟수 TOP 5 를 DataSet 으로 조회하여 Repeater 에 바인딩
-            DataSet ds = DbMan.DataAdapterFill(string.Format(
-                "SELECT TOP 5 Query, COUNT(*) AS SearchCount FROM SearchHistory WHERE UserID='{0}' GROUP BY Query ORDER BY SearchCount DESC", uid), "Top");
-            rptTopKeywords.DataSource = ds.Tables[0];
+            // 상위 5개 검색어와 검색 횟수를 Repeater에 바인딩
+            DataTable topKeywords = dao.GetUserTopSearches(uid, 5);
+            rptTopKeywords.DataSource = topKeywords;
             rptTopKeywords.DataBind();
         }
         catch { DbMan.Close(); }
@@ -473,60 +529,6 @@ public partial class Settings : System.Web.UI.Page
             }
         }
         catch { DbMan.Close(); }
-    }
-
-    /// <summary>
-    /// 프로필 사진 업로드 버튼(btnUploadPhoto)을 클릭했을 때 호출되는 이벤트 핸들러.
-    /// 선택한 이미지 파일(.jpg/.jpeg/.png)을 ~/uploads/ 폴더에 저장하고
-    /// members 테이블의 ProfileImg 컬럼을 저장된 파일명으로 UPDATE 한다.
-    /// 파일이 없거나 허용되지 않는 확장자면 오류 메시지를 표시한다.
-    /// </summary>
-    protected void btnUploadPhoto_Click(object sender, EventArgs e)
-    {
-        // 파일이 선택되지 않은 경우 처리를 중단
-        if (!fuPhoto.HasFile) return;
-
-        // 업로드된 파일의 확장자를 소문자로 추출
-        string ext = System.IO.Path.GetExtension(fuPhoto.FileName).ToLower();
-
-        // .jpg, .jpeg, .png 이외의 파일 형식은 허용하지 않음
-        if (ext != ".jpg" && ext != ".jpeg" && ext != ".png")
-        {
-            ScriptManager.RegisterStartupScript(this, GetType(), "photoErr",
-                string.Format("alert('{0}');", Lang.Get("set.photoError")), true);
-            return;
-        }
-
-        // 저장 파일명을 "사용자아이디 + 확장자" 형식으로 결정 (예: user01.jpg)
-        string uid      = Session["UserID"].ToString();
-        string fileName = uid.Trim() + ext;
-
-        // 서버의 ~/uploads/ 폴더 실제 경로를 계산
-        string savePath = Server.MapPath("~/uploads/") + fileName;
-
-        // ~/uploads/ 폴더가 없으면 새로 생성
-        if (!System.IO.Directory.Exists(Server.MapPath("~/uploads/")))
-            System.IO.Directory.CreateDirectory(Server.MapPath("~/uploads/"));
-
-        // 업로드된 파일을 지정된 경로에 저장
-        fuPhoto.SaveAs(savePath);
-
-        try
-        {
-            using (SqlConnection conn = DbMan.Open())
-            {
-                // members 테이블의 ProfileImg 컬럼을 새 파일명으로 UPDATE
-                SqlCommand cmd = new SqlCommand("UPDATE members SET ProfileImg=@img WHERE userid=@id", conn);
-                cmd.Parameters.AddWithValue("@img", fileName);
-                cmd.Parameters.AddWithValue("@id",  uid);
-                cmd.ExecuteNonQuery(); DbMan.Close();
-            }
-        }
-        catch { DbMan.Close(); }
-
-        // 사진 업데이트 성공 메시지 alert 후 설정 페이지를 새로고침
-        ScriptManager.RegisterStartupScript(this, GetType(), "photoOk",
-            string.Format("alert('{0}'); location.href='Settings.aspx';", Lang.Get("set.photoUpdated")), true);
     }
 
     /// <summary>
