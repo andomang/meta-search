@@ -44,9 +44,9 @@ public static class ExtraApi
                     return GetKakaoPlaces(query);
 
                 case "쇼핑":
-                    // shop.json 권한 없을 시 블로그 리뷰로 폴백
+                    // shop.json SE05(권한 없음) → webkr 쇼핑 도메인 필터로 실제 구매 페이지 반환
                     string shopping = GetNaverShopping(query);
-                    return shopping != "{}" ? shopping : GetNaverBlog(query + " 추천 후기");
+                    return shopping != "{}" ? shopping : GetNaverWebShop(query);
 
                 case "차량":
                 case "게임":
@@ -237,6 +237,99 @@ public static class ExtraApi
         catch { return "{}"; }
     }
 
+    // ── 네이버 웹 검색 기반 쇼핑 ──────────────────────────────────────────────
+
+    // 국내 주요 쇼핑몰 도메인 목록 (webkr 결과 필터링용)
+    private static readonly string[] _shopDomains = new[]
+    {
+        "smartstore.naver.com", "brand.naver.com", "shopping.naver.com",
+        "coupang.com", "gmarket.co.kr", "11st.co.kr", "auction.co.kr",
+        "interpark.com", "ssg.com", "lotteon.com", "tmon.co.kr",
+        "wemakeprice.com", "bunjang.co.kr", "musinsa.com", "zigzag.kr",
+        "oliveyoung.co.kr", "iherb.com", "danawa.com", "enuri.com",
+        "ohou.se", "29cm.co.kr", "ably.kr", "kakaostyle.com"
+    };
+
+    /// <summary>
+    /// Naver webkr 검색 결과에서 쇼핑몰 도메인만 필터링하여 반환한다.
+    /// shop.json SE05 오류 시 폴백으로 사용. 실제 구매 페이지로 연결됨.
+    /// 반환: {"type":"shopping","items":[{title,price,mall,image,link},...]}
+    /// </summary>
+    private static string GetNaverWebShop(string query)
+    {
+        string url  = "https://openapi.naver.com/v1/search/webkr.json?query=" +
+                      Uri.EscapeDataString(query + " 쇼핑") + "&display=30&start=1";
+        string json = HttpGet(url, null, NaverHeaders());
+        if (string.IsNullOrEmpty(json)) return "{}";
+
+        try
+        {
+            var ser  = new JavaScriptSerializer();
+            var root = (Dictionary<string, object>)ser.DeserializeObject(json);
+            if (!root.ContainsKey("items")) return "{}";
+
+            var raw = (object[])root["items"];
+            if (raw == null || raw.Length == 0) return "{}";
+
+            var items = new List<Dictionary<string, string>>();
+            foreach (object it in raw)
+            {
+                var item = (Dictionary<string, object>)it;
+                string link = Get(item, "link");
+                // 쇼핑몰 도메인이 포함된 URL만 통과
+                bool isShop = false;
+                foreach (string domain in _shopDomains)
+                    if (link.IndexOf(domain, StringComparison.OrdinalIgnoreCase) >= 0) { isShop = true; break; }
+                if (!isShop) continue;
+
+                // 도메인명에서 쇼핑몰 이름 추출
+                string mallName = "";
+                if      (link.Contains("smartstore"))  mallName = "스마트스토어";
+                else if (link.Contains("brand.naver")) mallName = "브랜드스토어";
+                else if (link.Contains("shopping.naver")) mallName = "네이버쇼핑";
+                else if (link.Contains("coupang"))     mallName = "쿠팡";
+                else if (link.Contains("gmarket"))     mallName = "G마켓";
+                else if (link.Contains("11st"))        mallName = "11번가";
+                else if (link.Contains("auction"))     mallName = "옥션";
+                else if (link.Contains("interpark"))   mallName = "인터파크";
+                else if (link.Contains("ssg"))         mallName = "SSG";
+                else if (link.Contains("lotteon"))     mallName = "롯데온";
+                else if (link.Contains("tmon"))        mallName = "티몬";
+                else if (link.Contains("musinsa"))     mallName = "무신사";
+                else if (link.Contains("zigzag"))      mallName = "지그재그";
+                else if (link.Contains("oliveyoung"))  mallName = "올리브영";
+                else if (link.Contains("bunjang"))     mallName = "번개장터";
+                else if (link.Contains("danawa"))      mallName = "다나와";
+                else if (link.Contains("enuri"))       mallName = "에누리";
+                else if (link.Contains("ohou.se"))     mallName = "오늘의집";
+                else if (link.Contains("29cm"))        mallName = "29CM";
+                else if (link.Contains("ably"))        mallName = "에이블리";
+                else if (link.Contains("kakaostyle"))  mallName = "카카오스타일";
+                else mallName = "쇼핑몰";
+
+                items.Add(new Dictionary<string, string>
+                {
+                    { "title", StripHtml(Get(item, "title"))       },
+                    { "price", ""                                   }, // webkr에는 가격 없음
+                    { "mall",  mallName                             },
+                    { "image", ""                                   },
+                    { "link",  link                                 }
+                });
+
+                if (items.Count >= 6) break; // 최대 6개
+            }
+
+            if (items.Count == 0) return GetNaverBlog(query + " 구매 후기");
+
+            return ser.Serialize(new Dictionary<string, object>
+            {
+                { "type",  "shopping" },
+                { "items", items }
+            });
+        }
+        catch { return "{}"; }
+    }
+
     // ── 네이버 뉴스 API ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -290,15 +383,52 @@ public static class ExtraApi
     /// </summary>
     private static string GetWikipedia(string query)
     {
+        // 한국어 우선, 실패 시 영어
         string result = FetchWikiSummary("ko", query);
         if (result != "{}") return result;
         return FetchWikiSummary("en", query);
     }
 
+    /// <summary>
+    /// Wikipedia 검색 API로 가장 관련도 높은 문서 제목을 찾는다.
+    /// disambiguation 페이지에 걸렸을 때 올바른 제목으로 재시도하기 위해 사용.
+    /// </summary>
+    private static string WikiSearchTitle(string lang, string query)
+    {
+        string url = string.Format(
+            "https://{0}.wikipedia.org/w/api.php?action=query&list=search&srsearch={1}&srlimit=1&format=json",
+            lang, Uri.EscapeDataString(query));
+        string json = HttpGet(url, null, null);
+        if (string.IsNullOrEmpty(json)) return "";
+        try
+        {
+            var ser    = new JavaScriptSerializer();
+            var root   = (Dictionary<string, object>)ser.DeserializeObject(json);
+            var qObj   = (Dictionary<string, object>)root["query"];
+            var search = (object[])qObj["search"];
+            if (search == null || search.Length == 0) return "";
+            return Get((Dictionary<string, object>)search[0], "title");
+        }
+        catch { return ""; }
+    }
+
     private static string FetchWikiSummary(string lang, string query)
     {
+        string result = TryWikiPage(lang, query);
+        if (result != "{}") return result;
+
+        // disambiguation 또는 미발견 시 검색 API로 정확한 제목 찾아 재시도
+        string betterTitle = WikiSearchTitle(lang, query);
+        if (!string.IsNullOrEmpty(betterTitle) && betterTitle != query)
+            return TryWikiPage(lang, betterTitle);
+
+        return "{}";
+    }
+
+    private static string TryWikiPage(string lang, string title)
+    {
         string url  = string.Format("https://{0}.wikipedia.org/api/rest_v1/page/summary/{1}",
-                                    lang, Uri.EscapeDataString(query));
+                                    lang, Uri.EscapeDataString(title));
         string json = HttpGet(url, null, null);
         if (string.IsNullOrEmpty(json)) return "{}";
 
@@ -307,17 +437,15 @@ public static class ExtraApi
             var ser  = new JavaScriptSerializer();
             var dict = (Dictionary<string, object>)ser.DeserializeObject(json);
 
-            // disambiguation(동음이의어 페이지) 또는 요약 없는 페이지는 스킵
+            // disambiguation·no-extract → 검색 API 재시도를 위해 "{}" 반환
             string pageType = Get(dict, "type");
             if (pageType == "disambiguation" || pageType == "no-extract") return "{}";
 
             string extract = Get(dict, "extract");
             if (string.IsNullOrWhiteSpace(extract)) return "{}";
 
-            // 요약을 200자로 자름
             if (extract.Length > 200) extract = extract.Substring(0, 200) + "...";
 
-            // 썸네일 이미지 URL 추출
             string thumbnail = "";
             if (dict.ContainsKey("thumbnail") && dict["thumbnail"] != null)
             {
@@ -325,7 +453,6 @@ public static class ExtraApi
                 thumbnail = Get(thumb, "source");
             }
 
-            // 데스크톱 페이지 URL 추출 (content_urls.desktop.page)
             string pageUrl = "";
             if (dict.ContainsKey("content_urls") && dict["content_urls"] != null)
             {
@@ -340,11 +467,11 @@ public static class ExtraApi
 
             return ser.Serialize(new Dictionary<string, object>
             {
-                { "type",      "wiki"          },
+                { "type",      "wiki"             },
                 { "title",     Get(dict, "title") },
-                { "extract",   extract          },
-                { "thumbnail", thumbnail        },
-                { "url",       pageUrl          }
+                { "extract",   extract            },
+                { "thumbnail", thumbnail          },
+                { "url",       pageUrl            }
             });
         }
         catch { return "{}"; }
@@ -454,8 +581,13 @@ public static class ExtraApi
     /// </summary>
     private static string GetWeather(string query)
     {
+        // "파리 날씨", "뉴욕 오늘 기온" 등 날씨 관련 수식어 제거 후 도시명만 추출
+        string cityQuery = Regex.Replace(query.Trim(),
+            @"\s*(날씨|기온|기후|weather|오늘|내일|이번\s*주|주간)\s*", " ",
+            RegexOptions.IgnoreCase).Trim();
+        cityQuery = Regex.Replace(cityQuery, @"\s+", " ").Trim();
+
         // 한국어 도시명이면 영어로 변환, 없으면 원본 사용
-        string cityQuery = query.Trim();
         string mapped;
         if (_cityMap.TryGetValue(cityQuery, out mapped)) cityQuery = mapped;
 

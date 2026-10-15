@@ -191,6 +191,67 @@ public partial class SearchResults : System.Web.UI.Page
         }
 
         // 카테고리 분류 전체 테스트 (디버그용, 확인 후 제거)
+        // DDG 크롤러 디버그: 실제 HTTP 응답 HTML 앞 3000자 + 파싱 결과 반환
+        // 예) /SearchResults.aspx?action=debugDDG&q=나이키
+        if (action == "debugDDG")
+        {
+            string q = Request.QueryString["q"] ?? "나이키";
+            string rawHtml = "";
+            string error   = "";
+            List<SearchResult> parsed = null;
+
+            try
+            {
+                var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(
+                    "https://lite.duckduckgo.com/lite/");
+                req.Method      = "POST";
+                req.ContentType = "application/x-www-form-urlencoded";
+                req.Timeout     = 10000;
+                req.UserAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+                req.AutomaticDecompression = System.Net.DecompressionMethods.GZip |
+                                             System.Net.DecompressionMethods.Deflate;
+                req.Accept  = "text/html,application/xhtml+xml,*/*;q=0.8";
+                req.Referer = "https://lite.duckduckgo.com/";
+                req.Headers.Add("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8");
+
+                byte[] body = Encoding.UTF8.GetBytes(
+                    "q=" + Uri.EscapeDataString(q) + "&kl=kr-kr");
+                req.ContentLength = body.Length;
+                using (var s = req.GetRequestStream()) s.Write(body, 0, body.Length);
+
+                using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
+                using (var sr   = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
+                    rawHtml = sr.ReadToEnd();
+            }
+            catch (Exception ex) { error = ex.Message; }
+
+            try { parsed = GoogleCrawler.Search(q, 10); } catch { }
+
+            var dbg = new System.Text.StringBuilder();
+            dbg.Append("{");
+            dbg.AppendFormat("\"error\":\"{0}\",", JsonEscapeStr(error));
+            dbg.AppendFormat("\"htmlLen\":{0},", rawHtml.Length);
+            dbg.AppendFormat("\"htmlHead\":\"{0}\",", JsonEscapeStr(
+                rawHtml.Length > 3000 ? rawHtml.Substring(0, 3000) : rawHtml));
+            dbg.AppendFormat("\"parsedCount\":{0},", parsed != null ? parsed.Count : -1);
+            dbg.Append("\"parsed\":[");
+            if (parsed != null)
+            {
+                for (int i = 0; i < parsed.Count; i++)
+                {
+                    if (i > 0) dbg.Append(",");
+                    dbg.AppendFormat("{{\"title\":\"{0}\",\"url\":\"{1}\"}}",
+                        JsonEscapeStr(parsed[i].Title), JsonEscapeStr(parsed[i].Url));
+                }
+            }
+            dbg.Append("]}");
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Write(dbg.ToString());
+            Response.End();
+            return;
+        }
+
         // 예) /SearchResults.aspx?action=debugClassify
         if (action == "debugClassify")
         {
@@ -296,6 +357,20 @@ public partial class SearchResults : System.Web.UI.Page
             // Daum: 배치마다 한 페이지씩 이동 (배치 2 → page=2, 배치 3 → page=3)
             int daumPage = batchNo;
 
+            // JS에서 전달한 엔진 가중치 파싱 (형식: "1,3,2")
+            int[] batchScores = new int[] { 1, 1, 1 };
+            string scoresParam = Request.QueryString["scores"];
+            if (!string.IsNullOrEmpty(scoresParam))
+            {
+                string[] parts = scoresParam.Split(',');
+                int sg, sn, sd;
+                if (parts.Length == 3
+                    && int.TryParse(parts[0], out sg)
+                    && int.TryParse(parts[1], out sn)
+                    && int.TryParse(parts[2], out sd))
+                    batchScores = new int[] { sg, sn, sd };
+            }
+
             Task<List<SearchResult>> naverTask = Task.Run(() => NaverCrawler.Search(q, 100, naverStart));
             Task<List<SearchResult>> daumTask  = Task.Run(() => DaumCrawler.Search(q, 50, daumPage));
             Task.WaitAll(new Task[] { naverTask, daumTask }, 12000);
@@ -303,8 +378,18 @@ public partial class SearchResults : System.Web.UI.Page
             var naverList = (naverTask.IsCompleted && !naverTask.IsFaulted) ? naverTask.Result : new List<SearchResult>();
             var daumList  = (daumTask.IsCompleted  && !daumTask.IsFaulted)  ? daumTask.Result  : new List<SearchResult>();
 
-            // google은 DDG 페이지네이션 미지원으로 빈 배열, 클라이언트가 naver+daum만 믹스
-            Response.Write("{\"google\":[],\"naver\":" + ToJson(naverList) + ",\"daum\":" + ToJson(daumList) + "}");
+            // 배치 RRF: LLM 없이 순위 융합만 수행 (Groq RPM 절약, 3초 타임아웃)
+            string batchRanked = "[]";
+            try
+            {
+                var rrfTask = Task.Run(() => RrfOnly(naverList, daumList, batchScores));
+                if (rrfTask.Wait(3000) && !rrfTask.IsFaulted)
+                    batchRanked = rrfTask.Result ?? "[]";
+            }
+            catch { }
+
+            // google은 DDG 페이지네이션 미지원으로 빈 배열
+            Response.Write("{\"google\":[],\"naver\":" + ToJson(naverList) + ",\"daum\":" + ToJson(daumList) + ",\"ranked\":" + batchRanked + "}");
             Response.End();
             return;
         }
@@ -520,8 +605,22 @@ public partial class SearchResults : System.Web.UI.Page
         hdnDaumJson.Value   = ToJson(daumResults);
         // 로그인 유저: 개인화 엔진 점수 사용. 비로그인·신규: 키워드 고정 점수
         int[] scores = BuildEngineScores(keyword);
+        // [구글, 네이버, 다음] 가중치 배열 → JS의 weightedMix(RRF)에 전달
+        hdnScores.Value = new JavaScriptSerializer().Serialize(scores);
         // AI 분류 키워드 (배지 표시용)
         hdnKeyword.Value   = keyword;
+
+        // ── RRF 서버사이드 계산 + Groq LLM 재정렬 (상위 20개, 최대 4초 대기) ──
+        // 완료되면 "전체" 탭 초기 결과로 사용. 타임아웃 시 JS 클라이언트 RRF로 폴백.
+        string rankedJson = "[]";
+        try
+        {
+            var rankTask = Task.Run(() => RrfAndRerank(q, googleResults, naverResults, daumResults, scores));
+            if (rankTask.Wait(4000) && !rankTask.IsFaulted)
+                rankedJson = rankTask.Result ?? "[]";
+        }
+        catch { }
+        hdnRankedJson.Value = rankedJson;
         // 외부 API 추가 결과 (카카오 장소, 네이버 쇼핑/뉴스/책, Wikipedia, 환율)
         hdnExtraJson.Value   = extraJson;
         // NIM AI 생성 관련 검색어 JSON 배열 (사이드바 관련 검색어 섹션)
@@ -640,6 +739,112 @@ public partial class SearchResults : System.Web.UI.Page
         }
         catch { }
         return "";
+    }
+
+    /// <summary>
+    /// 서버사이드 RRF 계산 후 Groq LLM으로 상위 N개를 재정렬하여 JSON 반환.
+    /// 참조: Cormack et al. SIGIR 2009 (RRF) + Sun et al. EMNLP 2023 (LLM listwise 재정렬)
+    /// LLM 호출 실패나 타임아웃 시 RRF 순서 그대로 반환 (안전 폴백).
+    /// </summary>
+    private string RrfAndRerank(string query, List<SearchResult> g, List<SearchResult> n, List<SearchResult> d, int[] scores)
+    {
+        const int k    = 60;  // Cormack et al. (2009) 권장 상수
+        const int topN = 20;  // LLM에 넘길 상위 결과 수 (Groq RPM 절약)
+
+        // URL → RRF 점수 합산 (중복 URL 자동 제거)
+        var scoreMap = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var itemMap  = new Dictionary<string, SearchResult>(StringComparer.OrdinalIgnoreCase);
+        var engines  = new List<SearchResult>[] { g, n, d };
+
+        for (int e = 0; e < 3; e++)
+        {
+            double w = (scores != null && scores.Length > e) ? scores[e] : 1.0;
+            for (int r = 0; r < engines[e].Count; r++)
+            {
+                var item = engines[e][r];
+                if (string.IsNullOrEmpty(item.Url)) continue;
+                if (!scoreMap.ContainsKey(item.Url)) { scoreMap[item.Url] = 0; itemMap[item.Url] = item; }
+                scoreMap[item.Url] += w / (k + r + 1);
+            }
+        }
+
+        // RRF 내림차순 정렬 → 상위 topN 추출
+        var sorted = new List<KeyValuePair<string, double>>(scoreMap);
+        sorted.Sort((a, b) => b.Value.CompareTo(a.Value));
+        var top = new List<SearchResult>();
+        for (int i = 0; i < Math.Min(topN, sorted.Count); i++)
+            top.Add(itemMap[sorted[i].Key]);
+
+        if (top.Count == 0) return "[]";
+
+        // LLM 입력: "0. 제목 — 설명" 형식 (토큰 절약을 위해 JSON 대신 텍스트)
+        var sb = new StringBuilder();
+        for (int i = 0; i < top.Count; i++)
+            sb.AppendFormat("{0}. {1} — {2}\n", i, top[i].Title, top[i].Description);
+
+        string rankOrder = "";
+        try { rankOrder = ClaudeApi.RankResults(query, sb.ToString()); }
+        catch { }
+
+        // rankOrder 파싱: "2,0,4,1" → 해당 인덱스 순서로 재배열
+        var reranked = new List<SearchResult>();
+        var seen     = new HashSet<int>();
+        if (!string.IsNullOrEmpty(rankOrder))
+        {
+            foreach (string part in rankOrder.Split(','))
+            {
+                int idx;
+                if (int.TryParse(part.Trim(), out idx) && idx >= 0 && idx < top.Count && !seen.Contains(idx))
+                {
+                    reranked.Add(top[idx]);
+                    seen.Add(idx);
+                }
+            }
+        }
+        // LLM이 누락한 인덱스는 RRF 순서 그대로 뒤에 추가 (완전성 보장)
+        for (int i = 0; i < top.Count; i++)
+            if (!seen.Contains(i)) reranked.Add(top[i]);
+
+        return ToJson(reranked);
+    }
+
+    /// <summary>
+    /// 배치 2+ 전용 서버 RRF. LLM 재정렬 없이 순위 융합만 수행 (Groq RPM 절약).
+    /// naver+daum 결과만 받아 중복 제거 후 상위 20개 반환.
+    /// </summary>
+    private string RrfOnly(List<SearchResult> n, List<SearchResult> d, int[] scores)
+    {
+        const int k    = 60;
+        const int topN = 20;
+
+        var scoreMap = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var itemMap  = new Dictionary<string, SearchResult>(StringComparer.OrdinalIgnoreCase);
+
+        double wN = (scores != null && scores.Length > 1) ? scores[1] : 1.0;
+        double wD = (scores != null && scores.Length > 2) ? scores[2] : 1.0;
+
+        for (int r = 0; r < n.Count; r++)
+        {
+            var item = n[r];
+            if (string.IsNullOrEmpty(item.Url)) continue;
+            if (!scoreMap.ContainsKey(item.Url)) { scoreMap[item.Url] = 0; itemMap[item.Url] = item; }
+            scoreMap[item.Url] += wN / (k + r + 1);
+        }
+        for (int r = 0; r < d.Count; r++)
+        {
+            var item = d[r];
+            if (string.IsNullOrEmpty(item.Url)) continue;
+            if (!scoreMap.ContainsKey(item.Url)) { scoreMap[item.Url] = 0; itemMap[item.Url] = item; }
+            scoreMap[item.Url] += wD / (k + r + 1);
+        }
+
+        var sorted = new List<KeyValuePair<string, double>>(scoreMap);
+        sorted.Sort((a, b) => b.Value.CompareTo(a.Value));
+        var top = new List<SearchResult>();
+        for (int i = 0; i < Math.Min(topN, sorted.Count); i++)
+            top.Add(itemMap[sorted[i].Key]);
+
+        return ToJson(top);
     }
 
     // JSON 문자열 이스케이프: 역슬래시·큰따옴표·제어문자 처리

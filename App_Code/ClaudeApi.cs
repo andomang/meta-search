@@ -5,47 +5,23 @@ using System.Text;
 using System.Web.Script.Serialization;
 
 /// <summary>
-/// Anthropic의 Claude AI API를 호출하는 유틸리티(Utility) 클래스.
-/// [유틸 레이어] - 검색어 카테고리 분류와 검색 결과 재정렬 두 가지 AI 기능을 제공한다.
-///
-/// 사용하는 AI 모델: claude-haiku-4-5 (빠른 응답 속도 중시)
-/// API 엔드포인트: https://api.anthropic.com/v1/messages
+/// Groq API(무료, OpenAI 호환)를 통해 AI 기능을 제공하는 유틸리티 클래스.
+/// 모델: qwen/qwen3.8-27b (한국어 특화, 무료, 30 RPM)
 ///
 /// 주요 기능:
 ///   1. Classify(query)     : 검색어를 13개 카테고리 중 하나로 분류
-///   2. RankResults(...)    : 검색 결과를 관련도 높은 순서로 재정렬
-///   3. CallClaude(message) : 실제 HTTP 요청을 보내고 응답 텍스트를 반환 (내부 전용)
-///
-/// API 키는 web.config의 appSettings["ClaudeApiKey"]에서 읽어온다.
-/// 모든 멤버가 static이므로 new ClaudeApi() 없이 ClaudeApi.Classify("서울 맛집") 방식으로 사용한다.
-/// API 오류 발생 시 서비스가 중단되지 않도록 기본값("일반")을 반환한다.
+///   2. RankResults(...)    : RRF 상위 결과를 관련도 순으로 재정렬 (Sun et al. EMNLP 2023)
+///   3. GetRelated(query)   : 관련 검색어 5개 생성
 /// </summary>
 public static class ClaudeApi
 {
-    // Claude API 요청을 보낼 URL (Anthropic 공식 메시지 엔드포인트) - RankResults 전용
-    private const string API_URL = "https://api.anthropic.com/v1/messages";
-
-    // RankResults에서 사용할 Claude 모델
-    private const string MODEL   = "claude-haiku-4-5";
-
-    // Groq API 엔드포인트 (OpenAI 호환) - Classify·GetRelated 전용
+    // Groq API 엔드포인트 (OpenAI 호환) - 전 기능 공통 사용
     private const string NIM_URL   = "https://api.groq.com/openai/v1/chat/completions";
 
     // Qwen3: 한국어·아시아 언어 특화, 무료, think 태그 자동 제거 처리됨
     private const string NIM_MODEL = "qwen/qwen3.8-27b";
 
-    /// <summary>
-    /// web.config의 appSettings 섹션에서 Claude API 키를 읽어오는 프로퍼티.
-    /// 키가 없거나 잘못되면 API 호출 시 401 Unauthorized 오류가 발생한다.
-    /// 보안상 API 키를 코드에 직접 작성하지 않고 설정 파일에서 읽는 방식을 사용한다.
-    /// </summary>
-    // Anthropic API 키 (RankResults 전용)
-    private static string ApiKey
-    {
-        get { return System.Web.Configuration.WebConfigurationManager.AppSettings["ClaudeApiKey"]; }
-    }
-
-    // Groq API 키 (Classify·GetRelated 전용)
+    // Groq API 키 - Classify, RankResults, GetRelated 공통 사용
     private static string NimApiKey
     {
         get { return System.Web.Configuration.WebConfigurationManager.AppSettings["GroqApiKey"]; }
@@ -280,21 +256,135 @@ public static class ClaudeApi
     /// </returns>
     public static string RankResults(string query, string resultsJson)
     {
-        // Claude에게 보낼 프롬프트 구성
-        // - 검색어와 JSON 결과 목록을 제공하고 관련도 순 인덱스만 반환하도록 지시
-        string prompt = string.Format(
-            "검색어: \"{0}\"\n" +
-            "아래 검색 결과들을 관련도 높은 순서로 번호만 쉼표로 나열해. 예: 3,1,4,2\n" +
-            "결과:\n{1}", query, resultsJson);
+        // system: 역할과 출력 형식 명시, user: 검색어 + 결과 목록
+        // Sun et al. (EMNLP 2023 "Is ChatGPT Good at Search?") listwise 재정렬 방식 적용
+        string systemMsg =
+            "너는 검색 결과 관련도 평가 AI다. " +
+            "검색어와 번호가 붙은 결과 목록을 받아 관련도 높은 순서로 번호(0부터)만 쉼표로 나열해. " +
+            "예: 2,0,4,1,3   설명하지 마. 숫자와 쉼표만 출력해.";
 
-        // Claude API 호출 후 응답 텍스트의 앞뒤 공백 제거하여 반환
-        return CallClaude(prompt).Trim();
+        string userMsg = string.Format("검색어: \"{0}\"\n결과:\n{1}", query, resultsJson);
+
+        string raw = CallNim(userMsg, systemMsg).Trim();
+        // LLM이 부연 설명을 붙여도 숫자·쉼표만 추출하여 안전하게 처리
+        return System.Text.RegularExpressions.Regex.Replace(raw, @"[^0-9,]", "").Trim(',');
     }
 
     /// <summary>
     /// NVIDIA NIM API(OpenAI 호환)에 요청을 보내고 응답 텍스트를 반환하는 내부 메서드.
     /// system/user 분리 메시지 구조 사용. DeepSeek 계열의 &lt;think&gt;태그 자동 제거.
     /// </summary>
+    /// <summary>
+    /// 검색 결과 목록에 관련성 점수를 일괄 레이블링한다 (테스트셋 평가 전용).
+    /// 반환: 각 인덱스에 대응하는 관련성 점수 배열 (0=무관련, 1=부분관련, 2=매우관련).
+    /// </summary>
+    public static int[] LabelRelevance(string query, string[] titles, string[] snippets)
+    {
+        int n = titles.Length;
+
+        // 번호 붙인 결과 목록 구성
+        var sb = new StringBuilder();
+        for (int i = 0; i < n; i++)
+        {
+            string t = (titles[i] ?? "").Replace("\"", "'");
+            string d = (snippets[i] ?? "").Replace("\"", "'");
+            if (d.Length > 80) d = d.Substring(0, 80);
+            sb.AppendFormat("{0}. {1} - {2}\n", i, t, d);
+        }
+
+        string system =
+            "너는 검색 결과 관련성 평가 AI다. " +
+            "검색어와 번호 붙은 결과 목록을 받으면 각 항목을 " +
+            "0(무관련) 1(부분관련) 2(매우관련)으로 평가해. " +
+            "/no_think JSON 숫자 배열만 출력해. 예: [2,0,1,2,0]";
+
+        string user = string.Format("검색어: \"{0}\"\n결과:\n{1}", query, sb);
+
+        // Qwen3 think 토큰 + JSON 출력 여유분 확보 (think 블록 최대 ~1500토큰 소모 가능)
+        int maxTok = Math.Max(n * 8 + 512, 2048);
+
+        // Groq RPM 제한 대응: 최대 3회 재시도, 빈 응답이면 5초 대기 후 재시도
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0) System.Threading.Thread.Sleep(5000);
+
+            string raw = CallNim(user, system, maxTok);
+            if (string.IsNullOrEmpty(raw)) continue;
+
+            var matches = System.Text.RegularExpressions.Regex.Matches(raw, @"\d");
+            if (matches.Count < 1) continue;
+
+            int[] scores = new int[n];
+            for (int i = 0; i < Math.Min(matches.Count, n); i++)
+            {
+                int v = int.Parse(matches[i].Value);
+                scores[i] = Math.Min(v, 2);
+            }
+
+            // 전부 0이면 응답 실패로 간주하고 재시도
+            bool hasRelevant = false;
+            foreach (int s in scores) if (s > 0) { hasRelevant = true; break; }
+            if (hasRelevant) return scores;
+        }
+
+        return new int[n]; // 3회 모두 실패 시 0 배열
+    }
+
+    // maxTokens 파라미터 추가 오버로드 (LabelRelevance에서 사용)
+    private static string CallNim(string userMessage, string systemMessage, int maxTokens)
+    {
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    // Qwen3 think 모드 시 응답이 오래 걸릴 수 있으므로 60초로 설정
+                    client.Timeout = TimeSpan.FromSeconds(60);
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + NimApiKey);
+
+                    object messages;
+                    if (!string.IsNullOrEmpty(systemMessage))
+                        messages = new object[]
+                        {
+                            new { role = "system", content = systemMessage },
+                            new { role = "user",   content = userMessage   }
+                        };
+                    else
+                        messages = new object[] { new { role = "user", content = userMessage } };
+
+                    var body = new { model = NIM_MODEL, max_tokens = maxTokens, temperature = 0.1, messages = messages };
+                    var content = new StringContent(new JavaScriptSerializer().Serialize(body), Encoding.UTF8, "application/json");
+                    var response = System.Threading.Tasks.Task.Run(() => client.PostAsync(NIM_URL, content)).Result;
+
+                    if (response.StatusCode == (System.Net.HttpStatusCode)429)
+                    {
+                        if (attempt == 0) { System.Threading.Thread.Sleep(2000); continue; }
+                        return "";
+                    }
+
+                    var raw = System.Threading.Tasks.Task.Run(() => response.Content.ReadAsStringAsync()).Result;
+                    dynamic obj  = new JavaScriptSerializer().DeserializeObject(raw);
+                    var choices  = (object[])obj["choices"];
+                    var first    = (System.Collections.Generic.Dictionary<string, object>)choices[0];
+                    var msg      = (System.Collections.Generic.Dictionary<string, object>)first["message"];
+                    string text  = msg["content"].ToString();
+
+                    int thinkEnd = text.LastIndexOf("</think>");
+                    if (thinkEnd >= 0) text = text.Substring(thinkEnd + 8);
+                    return text.Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Groq(maxTokens) error: " + ex.Message);
+                if (attempt == 0) { System.Threading.Thread.Sleep(1000); continue; }
+                return "";
+            }
+        }
+        return "";
+    }
+
     private static string CallNim(string userMessage, string systemMessage = null)
     {
         // 429(RPM 한도 초과) 시 1회 재시도
@@ -365,66 +455,4 @@ public static class ClaudeApi
         return "일반";
     }
 
-    /// <summary>
-    /// Claude API에 HTTP POST 요청을 전송하고 AI의 응답 텍스트를 반환하는 내부 메서드.
-    /// Classify()와 RankResults()가 공통으로 사용하는 API 통신 로직을 담당한다.
-    /// 오류 발생 시 서비스를 중단하지 않고 "일반"을 반환하여 안전하게 처리한다.
-    /// (private: 클래스 외부에서 직접 호출 불가)
-    /// </summary>
-    /// <param name="userMessage">Claude에게 전달할 사용자 메시지(프롬프트) 문자열</param>
-    /// <returns>Claude AI의 응답 텍스트, 오류 발생 시 "일반" 반환</returns>
-    private static string CallClaude(string userMessage)
-    {
-        try
-        {
-            // HttpClient: HTTP 요청/응답을 처리하는 객체 (using으로 자동 자원 해제)
-            using (var client = new HttpClient())
-            {
-                // API 응답 대기 최대 시간: 15초 (초과 시 TimeoutException 발생)
-                client.Timeout = TimeSpan.FromSeconds(15);
-                // 요청 헤더에 API 인증 키 추가 (Anthropic 인증 방식)
-                client.DefaultRequestHeaders.Add("x-api-key", ApiKey);
-                // Anthropic API 버전 헤더 추가 (필수 헤더)
-                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-
-                // 요청 본문(Body) 구성: 모델명, 최대 토큰 수, 메시지 배열
-                var body = new
-                {
-                    model      = MODEL,       // 사용할 Claude 모델 (claude-haiku-4-5)
-                    max_tokens = 256,          // 응답 최대 토큰 수 (카테고리명/인덱스만 반환하므로 256으로 충분)
-                    // 메시지 배열: role = "user"로 사용자 입력 메시지 전달
-                    messages   = new[] { new { role = "user", content = userMessage } }
-                };
-
-                // 요청 본문 객체를 JSON 문자열로 직렬화
-                var json    = new JavaScriptSerializer().Serialize(body);
-                // JSON 문자열을 UTF-8 인코딩의 HTTP 콘텐츠로 변환, Content-Type: application/json 설정
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                // API_URL에 POST 요청 전송 (비동기를 동기로 처리: Task.Run + .Result)
-                var response = System.Threading.Tasks.Task.Run(() => client.PostAsync(API_URL, content)).Result;
-                // 응답 본문을 문자열로 읽기
-                var result   = System.Threading.Tasks.Task.Run(() => response.Content.ReadAsStringAsync()).Result;
-
-                // 응답 JSON에서 실제 텍스트 추출 (content[0].text 경로)
-                var ser  = new JavaScriptSerializer();
-                // 응답 JSON을 동적(dynamic) 객체로 역직렬화
-                dynamic obj = ser.DeserializeObject(result);
-                // "content" 배열 꺼내기 (Claude 응답 구조: { content: [ { type: "text", text: "..." } ] })
-                var arr = (object[])obj["content"];
-                // 배열의 첫 번째 항목을 Dictionary로 캐스팅
-                var first = (System.Collections.Generic.Dictionary<string, object>)arr[0];
-                // "text" 키의 값이 실제 AI 응답 텍스트
-                return first["text"].ToString();
-            }
-        }
-        catch (Exception ex)
-        {
-            // 네트워크 오류, 타임아웃, JSON 파싱 오류 등 모든 예외를 catch
-            // 디버그 콘솔에 오류 메시지 출력 (개발 중 확인용, 사용자에게는 노출되지 않음)
-            System.Diagnostics.Debug.WriteLine("Claude API error: " + ex.Message);
-            // API 실패해도 서비스가 중단되지 않도록 기본 카테고리 "일반" 반환
-            return "일반";
-        }
-    }
 }

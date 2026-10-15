@@ -243,6 +243,8 @@
     <asp:HiddenField ID="hdnExtraJson"   runat="server" />
     <%-- NIM AI 생성 관련 검색어 JSON 배열 (사이드바 관련 검색어 패널) --%>
     <asp:HiddenField ID="hdnRelatedJson" runat="server" />
+    <%-- RRF + LLM 재정렬 결과 (서버사이드 계산, "전체" 탭 우선 사용) --%>
+    <asp:HiddenField ID="hdnRankedJson" runat="server" />
 
     <script>
         /* =====================================================
@@ -268,11 +270,13 @@
            각 배열 원소 형식: { title, url, desc, src }
            engineScores: [구글점수, 네이버점수, 다음점수] — 가중치 믹스에 사용
         ===================================================== */
-        var googleResults = [], naverResults = [], daumResults = [], engineScores = [1, 1, 1];
-        try { googleResults = JSON.parse(document.getElementById('<%= hdnGoogleJson.ClientID %>').value || '[]'); } catch(e) {}
-        try { naverResults  = JSON.parse(document.getElementById('<%= hdnNaverJson.ClientID  %>').value || '[]'); } catch(e) {}
-        try { daumResults   = JSON.parse(document.getElementById('<%= hdnDaumJson.ClientID   %>').value || '[]'); } catch(e) {}
-        try { engineScores  = JSON.parse(document.getElementById('<%= hdnScores.ClientID     %>').value || '[1,1,1]'); } catch(e) {}
+        var googleResults = [], naverResults = [], daumResults = [], engineScores = [1, 1, 1], rankedResults = [];
+        try { googleResults  = JSON.parse(document.getElementById('<%= hdnGoogleJson.ClientID %>').value || '[]'); } catch(e) {}
+        try { naverResults   = JSON.parse(document.getElementById('<%= hdnNaverJson.ClientID  %>').value || '[]'); } catch(e) {}
+        try { daumResults    = JSON.parse(document.getElementById('<%= hdnDaumJson.ClientID   %>').value || '[]'); } catch(e) {}
+        try { engineScores   = JSON.parse(document.getElementById('<%= hdnScores.ClientID     %>').value || '[1,1,1]'); } catch(e) {}
+        // 서버사이드 RRF + LLM 재정렬 결과 (있으면 "전체" 탭 우선 사용, 없으면 클라이언트 RRF 폴백)
+        try { rankedResults  = JSON.parse(document.getElementById('<%= hdnRankedJson.ClientID %>').value || '[]'); } catch(e) {}
 
         /* AI 분류 키워드 배지 표시: hdnKeyword 값이 있으면 결과 카운트 옆 배지에 렌더링 */
         var aiKeyword = document.getElementById('<%= hdnKeyword.ClientID %>').value;
@@ -325,7 +329,7 @@
                 var tabName = this.getAttribute('data-tab');
                 activeTab = tabName;
                 var items;
-                if      (tabName === 'all')    items = weightedMix(googleResults, naverResults, daumResults, engineScores);
+                if      (tabName === 'all')    items = getAllItems();
                 else if (tabName === 'google') items = googleResults;
                 else if (tabName === 'naver')  items = naverResults;
                 else                           items = daumResults;
@@ -344,31 +348,44 @@
         }
 
         /* =====================================================
-           weightedMix(g, n, d, s): 가중치 점수 기반 결과 교차 배치
-           엔진을 점수 내림차순으로 먼저 정렬한 뒤 라운드마다 점수만큼 추가.
-           예) 국내뉴스 [구글1, 네이버3, 다음2] → 정렬 후 네이버3→다음2→구글1 순
+           getAllItems(): "전체" 탭용 결과 반환
+           서버사이드 RRF+LLM 재정렬 결과가 있으면 우선 사용,
+           없으면 클라이언트 RRF(weightedMix)로 폴백
+        ===================================================== */
+        function getAllItems() {
+            if (rankedResults && rankedResults.length > 0) return rankedResults;
+            return weightedMix(googleResults, naverResults, daumResults, engineScores);
+        }
+
+        /* =====================================================
+           weightedMix(g, n, d, s): Reciprocal Rank Fusion (RRF) 기반 결과 통합
+           논문: Cormack, Clarke & Büttcher (SIGIR 2009)
+           공식: score(d) = Σ w_e / (k + rank_e(d))
+                 k=60 (논문 권장값), w_e = 카테고리 엔진 가중치(1~3)
+           같은 URL이 여러 엔진 상위에 오를수록 점수 누적 → 자동 상위 배치
+           URL 중복 제거: 동일 URL은 가장 높은 점수 엔진 대표 항목으로 합산
         ===================================================== */
         function weightedMix(g, n, d, s) {
-            // 점수 내림차순 정렬: 높은 점수 엔진이 각 라운드의 앞자리를 차지
-            var engines = [
-                { items: g, score: s[0] },
-                { items: n, score: s[1] },
-                { items: d, score: s[2] }
-            ];
-            engines.sort(function(a, b) { return b.score - a.score; });
+            var k = 60;  // Cormack et al. (2009) 권장 상수
+            var scoreMap = {}, itemMap = {};
+            var engines  = [g, n, d];
 
-            var result = [], idx = [0, 0, 0];
-            while (idx[0] < engines[0].items.length || idx[1] < engines[1].items.length || idx[2] < engines[2].items.length) {
-                var added = 0;
-                for (var e = 0; e < 3; e++) {
-                    for (var i = 0; i < engines[e].score && idx[e] < engines[e].items.length; i++, idx[e]++) {
-                        result.push(engines[e].items[idx[e]]);
-                        added++;
-                    }
+            // 각 엔진의 순위(r)와 카테고리 가중치(w)로 RRF 점수 누적
+            for (var e = 0; e < 3; e++) {
+                var w = (s && s[e]) ? s[e] : 1;
+                for (var r = 0; r < engines[e].length; r++) {
+                    var item = engines[e][r];
+                    var url  = item && item.url;
+                    if (!url) continue;
+                    if (!scoreMap[url]) { scoreMap[url] = 0; itemMap[url] = item; }
+                    scoreMap[url] += w / (k + r + 1);  // r+1: 1-based rank
                 }
-                if (added === 0) break; // 모든 엔진 소진 시 루프 종료
             }
-            return result;
+
+            // RRF 점수 내림차순 정렬 후 반환 (URL 중복 자동 제거됨)
+            return Object.keys(scoreMap)
+                .sort(function(a, b) { return scoreMap[b] - scoreMap[a]; })
+                .map(function(u) { return itemMap[u]; });
         }
 
         /* =====================================================
@@ -397,7 +414,7 @@
             pageItems.forEach(function(item) {
                 // 출처 엔진에 따라 배지 색상과 레이블 결정
                 var src      = item.src  || '';
-                var srcLabel = src === 'google' ? 'DDG' : src === 'naver' ? '네이버' : '다음';
+                var srcLabel = src === 'google' ? 'Google' : src === 'naver' ? '네이버' : '다음';
                 var srcCss   = src === 'google'
                     ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
                     : src === 'naver'
@@ -448,12 +465,11 @@
         ===================================================== */
         function renderPagination(totalCount) {
             var pgContainer  = document.getElementById('paginationContainer');
-            var batchPages   = Math.ceil(totalCount / PAGE_SIZE);
-            // 전역 마지막 페이지: 이전 배치 페이지 수 + 현재 배치 페이지 수
-            var batchLastPage = batchStartPage - 1 + batchPages;
+            var batchPages    = Math.ceil(totalCount / PAGE_SIZE);
+            var batchLastPage = batchPages;  // 누적 방식이므로 항상 전체 페이지 수와 동일
 
-            // 배치 1이고 1페이지뿐이면 페이지네이션 불필요
-            if (batchPages <= 1 && batchStartPage === 1) { pgContainer.innerHTML = ''; return; }
+            // 결과가 없으면 숨김 (결과 있으면 1페이지라도 "다음" 버튼을 위해 렌더링)
+            if (batchPages === 0) { pgContainer.innerHTML = ''; return; }
 
             // type='button' 필수: 미지정 시 기본값 submit → 폼 PostBack 발생
             var btnBase = 'inline-flex items-center justify-center w-9 h-9 rounded-lg text-sm font-medium transition-colors ';
@@ -463,8 +479,8 @@
 
             var html = '<div class="flex items-center justify-center gap-1 py-4 border-t border-gray-200 dark:border-slate-700">';
 
-            // 이전 버튼: 배치 시작 페이지 미만으로는 이동 불가 (이전 배치 결과 미보유)
-            if (currentPage > batchStartPage) {
+            // 이전 버튼: 1페이지보다 뒤에 있을 때만 활성화
+            if (currentPage > 1) {
                 html += '<button type="button" class="' + btnNorm + '" onclick="goToPage(' + (currentPage - 1) + ')">' +
                         '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
                         '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>' +
@@ -476,14 +492,14 @@
                         '</button>';
             }
 
-            // 페이지 번호: 현재 배치 범위 내에서 앞뒤 2개씩 표시
-            var startPage = Math.max(batchStartPage, currentPage - 2);
-            var endPage   = Math.min(batchLastPage,  currentPage + 2);
+            // 페이지 번호: 현재 페이지 앞뒤 2개씩 표시
+            var startPage = Math.max(1, currentPage - 2);
+            var endPage   = Math.min(batchLastPage, currentPage + 2);
 
-            // 배치 첫 페이지가 표시 범위 밖이면 첫 페이지 + ... 표시
-            if (startPage > batchStartPage) {
-                html += '<button type="button" class="' + btnNorm + '" onclick="goToPage(' + batchStartPage + ')">' + batchStartPage + '</button>';
-                if (startPage > batchStartPage + 1) html += '<span class="px-1 text-gray-400">…</span>';
+            // 첫 페이지가 표시 범위 밖이면 1 + ... 표시
+            if (startPage > 1) {
+                html += '<button type="button" class="' + btnNorm + '" onclick="goToPage(1)">1</button>';
+                if (startPage > 2) html += '<span class="px-1 text-gray-400">…</span>';
             }
             for (var p = startPage; p <= endPage; p++) {
                 if (p === currentPage)
@@ -512,9 +528,9 @@
            현재 배치 마지막 페이지를 초과하면 loadNextBatch() 호출.
         ===================================================== */
         function goToPage(page) {
-            if (page < batchStartPage) return;  // 이전 배치는 접근 불가
+            if (page < 1) return;
 
-            var batchLastPage = batchStartPage - 1 + Math.ceil(activeItems.length / PAGE_SIZE);
+            var batchLastPage = Math.ceil(activeItems.length / PAGE_SIZE);
             if (page > batchLastPage) {
                 // 배치 경계 초과 → 다음 배치 AJAX 로드
                 loadNextBatch(page);
@@ -542,19 +558,24 @@
                 '</div>';
             document.getElementById('paginationContainer').innerHTML = '';
 
-            // targetPage 기반으로 배치 번호 계산 (11페이지 → 배치 2, 21페이지 → 배치 3)
-            var newBatchNum = Math.ceil(targetPage / 10);
+            // 항상 현재 배치의 다음 배치를 로드 (targetPage 기반 계산은 배치당 페이지 수가 가변이라 틀림)
+            var newBatchNum = batchNum + 1;
 
-            fetch('SearchResults.aspx?action=crawlMore&q=' + encodeURIComponent(currentQuery) + '&batch=' + newBatchNum)
+            fetch('SearchResults.aspx?action=crawlMore&q=' + encodeURIComponent(currentQuery) + '&batch=' + newBatchNum + '&scores=' + engineScores.join(','))
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
-                    googleResults = data.google || [];
-                    naverResults  = data.naver  || [];
-                    daumResults   = data.daum   || [];
+                    // DDG(구글 탭)는 페이지네이션 미지원 → 서버가 [] 반환해도 기존 결과 유지
+                    if (data.google && data.google.length > 0) googleResults = data.google;
+                    // 네이버/다음은 누적(concat): 교체하면 이전 페이지로 돌아갈 수 없음
+                    if (data.naver && data.naver.length > 0) naverResults = naverResults.concat(data.naver);
+                    if (data.daum  && data.daum.length  > 0) daumResults  = daumResults.concat(data.daum);
+                    // 배치 서버 RRF 결과를 rankedResults에 누적 → 전체 탭이 계속 서버 RRF 품질 유지
+                    if (data.ranked && data.ranked.length > 0) rankedResults = rankedResults.concat(data.ranked);
 
-                    // 현재 탭에 맞는 결과 혼합
+                    // 현재 탭 기준 전체 누적 결과 재계산
+                    // 전체 탭: rankedResults에 배치 RRF가 이미 누적됐으므로 getAllItems() 사용
                     var items;
-                    if      (activeTab === 'all')    items = weightedMix(googleResults, naverResults, daumResults, engineScores);
+                    if      (activeTab === 'all')    items = getAllItems();
                     else if (activeTab === 'google') items = googleResults;
                     else if (activeTab === 'naver')  items = naverResults;
                     else                             items = daumResults;
@@ -566,11 +587,13 @@
                         return;
                     }
 
-                    // 배치 상태 갱신 후 렌더링
-                    batchNum       = newBatchNum;
-                    batchStartPage = (newBatchNum - 1) * 10 + 1;  // 배치2→11, 배치3→21
-                    activeItems    = items;
-                    currentPage    = batchStartPage;               // 새 배치의 첫 페이지
+                    // 누적 전 페이지 수 기억 → 새로 추가된 첫 페이지로 이동
+                    var prevPageCount = Math.ceil(activeItems.length / PAGE_SIZE) || 1;
+
+                    // batchStartPage는 항상 1 유지 (누적 방식이므로 이전 배치도 탐색 가능)
+                    batchNum    = newBatchNum;
+                    activeItems = items;
+                    currentPage = prevPageCount + 1;
                     isLoadingBatch = false;
 
                     renderResultsPage();
@@ -593,7 +616,7 @@
                 activeTab      = 'all';
                 batchNum       = 1;
                 batchStartPage = 1;
-                switchTab(weightedMix(googleResults, naverResults, daumResults, engineScores));
+                switchTab(getAllItems());
             } else if (currentQuery) {
                 // 검색어는 있지만 모든 크롤러가 결과를 못 가져온 경우
                 document.getElementById('noResults').style.display = 'flex';
@@ -808,6 +831,7 @@
             else if (data.type === 'exchange') inner = renderExchange(data);
             else if (data.type === 'youtube')  inner = renderYoutube(data);
             else if (data.type === 'weather')  inner = renderWeather(data);
+            else if (data.type === 'blog')     inner = renderBlog(data);
             if (!inner) return;
             panel.innerHTML = '<div class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl p-5">' + inner + '</div>';
             panel.classList.remove('hidden');
@@ -896,6 +920,28 @@
                     (n.desc ? '    <div class="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">' + escapeHtml(n.desc) + '</div>' : '') +
                     '  </div>' +
                     (dateStr ? '<span class="text-xs text-gray-400 dark:text-slate-500 flex-shrink-0">' + escapeHtml(dateStr) + '</span>' : '') +
+                    '</a>';
+            });
+            html += '</div>';
+            return html;
+        }
+
+        /* 네이버 블로그 카드 - 쇼핑 shop.json 권한 없을 때 폴백으로 표시 */
+        function renderBlog(data) {
+            var items = data.items || [];
+            if (!items.length) return '';
+            var html = panelHeader('shopping-bag', '쇼핑 후기', '네이버 블로그');
+            html += '<div class="space-y-1">';
+            items.forEach(function(b, i) {
+                html +=
+                    '<a href="' + escapeHtml(b.link || '#') + '" target="_blank" rel="noopener" ' +
+                    '   class="flex gap-3 items-start rounded-lg p-2 -mx-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors" style="text-decoration:none">' +
+                    '  <span class="text-xs font-bold text-blue-500 dark:text-blue-400 w-4 flex-shrink-0 mt-0.5">' + (i + 1) + '</span>' +
+                    '  <div class="flex-1 min-w-0">' +
+                    '    <div class="text-sm font-medium text-gray-800 dark:text-slate-200 truncate">' + escapeHtml(b.title || '') + '</div>' +
+                    (b.desc ? '    <div class="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">' + escapeHtml(b.desc) + '</div>' : '') +
+                    (b.blogger ? '    <div class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">' + escapeHtml(b.blogger) + '</div>' : '') +
+                    '  </div>' +
                     '</a>';
             });
             html += '</div>';
