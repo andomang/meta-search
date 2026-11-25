@@ -16,3 +16,15 @@ appsettings.*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# AI·개발 도구 파일은 올리지 않음 (문서는 README 만 공개) — PC 에만 둠
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+AI_HANDOFF_PROMPT.md
+PRODUCT.md
+DESIGN.md
+.claude/
+graphify-out/
+.impeccable/
+.cursor/
