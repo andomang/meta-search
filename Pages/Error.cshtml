@@ -1,0 +1,51 @@
+﻿@page
+@model ErrorModel
+@{
+    Layout = null;
+}
+@* 서버 오류 페이지 (UseExceptionHandler("/Error")) — 메인과 같은 디자인
+   예전엔 ASP.NET 기본 영어 개발자 안내문이 그대로 나왔음. 오류 내용은 보여 주지 않고 요청 번호만 (문의할 때 로그를 찾는 용도) *@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>문제가 생겼습니다 — domang.org</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/icons/icon-512.png" type="image/png" />
+    <script>
+        try { var t = localStorage.getItem('theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) { }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <link rel="stylesheet" href="/css/project.css" asp-append-version="true" />
+    <style>
+        .err { padding-block: clamp(40px, 12vh, 120px) 80px; max-width: 34rem; display: grid; gap: 16px; }
+        .err h1 { font-size: clamp(2rem, 7vw, 3rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; }
+        .err p { color: var(--ink-2); font-size: 1.05rem; }
+        .err .rid { font-size: 13px; color: var(--ink-3); }
+        .err .rid code { font-family: ui-monospace, Consolas, monospace; }
+        .err .acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .err .acts a { display: inline-flex; align-items: center; height: 40px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--rule); font-weight: 700; font-size: 14px; }
+        .err .acts a:first-child { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+        .err .acts a:hover { border-color: var(--ink); }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <partial name="_SiteTop" />
+        <main class="err">
+            <h1>요청을 처리하지 못했습니다</h1>
+            <p>서버에서 문제가 생겼습니다. 잠시 후 다시 시도해 주세요. 계속되면 아래 번호와 함께 metasearch@@domang.org 로 알려 주세요.</p>
+            @if (Model.ShowRequestId)
+            {
+                <p class="rid">요청 번호 <code>@Model.RequestId</code></p>
+            }
+            <div class="acts">
+                <a href="/">domang.org 홈</a>
+                <a href="javascript:history.back()">이전 페이지</a>
+            </div>
+        </main>
+    </div>
+    <script src="/js/theme.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+@* ============================================================
+   _AdHead.cshtml - 구글 애드센스 공통 스크립트 (모든 페이지 <head>에 넣음)
+   * appsettings.json 의 AdSense:Client(ca-pub-…)가 비어 있으면 아무것도 출력하지 않음
+   * 제외 경로(AdSense:Exclude)에서는 출력하지 않음:
+     포켓몬 팬게임(저작권 정책), 로그인/가입/관리자/설정/드라이브(광고 정책상 콘텐츠 없는 화면)
+   * 사이트 소유 확인용 meta 태그도 함께 넣음 (애드센스 "사이트 확인" 단계)
+   ============================================================ *@
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    string adClient = Config["AdSense:Client"] ?? "";
+    string adPath = (Context.Request.Path.Value ?? "/").ToLowerInvariant();
+    var adExclude = Config.GetSection("AdSense:Exclude").Get<string[]>() ?? Array.Empty<string>();
+    bool adOn = adClient.StartsWith("ca-pub-") && !adExclude.Any(e => adPath == e || adPath.StartsWith(e.TrimEnd('/') + "/"));
+    Context.Items["AdOn"] = adOn;   // 같은 요청의 광고 칸(_AdUnit)이 참고
+}
+@if (adOn)
+{
+    <meta name="google-adsense-account" content="@adClient" />
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=@adClient" crossorigin="anonymous"></script>
+    <!-- 광고가 채워지지 않으면(unfilled) 빈 칸과 그 칸을 감싼 여백·구분선까지 숨김 -->
+    <style>
+        ins.adsbygoogle[data-ad-status="unfilled"] { display: none !important; }
+        .ad-inline:has(ins.adsbygoogle[data-ad-status="unfilled"]),
+        .ad-mid:has(ins.adsbygoogle[data-ad-status="unfilled"]),
+        .ad-side:has(ins.adsbygoogle[data-ad-status="unfilled"]) { display: none !important; }
+    </style>
+}

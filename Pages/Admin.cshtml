@@ -1,0 +1,179 @@
+@page
+@model AdminModel
+@{
+    Layout = null;
+}
+@* 통합 관리자 페이지 (/admin) — 예전 메타서치 관리(/Admin)·아스테라 관리(/pokeadmin)·드라이브 관리(/drive/admin)를 하나로 합침
+   메뉴는 주소 뒤 #이름으로 바뀜 (#members #connections #stats #usage #ratings #drive #poke)
+   권한 확인은 페이지(AdminModel)와 각 API(서버) 양쪽에서 함 *@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>domang 관리자</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/icons/icon-512.png" type="image/png" />
+    <!-- 테마: 저장된 선택이 있으면 그리기 전에 바로 적용 (깜빡임 방지) -->
+    <script>
+        try { var t = localStorage.getItem('theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) { }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <link rel="stylesheet" href="/css/project.css" asp-append-version="true" />
+    <link rel="stylesheet" href="/css/admin.css" asp-append-version="true" />
+</head>
+<body data-bust="@Model.Bust">
+    <div class="wrap wide">
+        <partial name="_SiteTop" />
+
+        <main class="adm">
+            <div class="adm-head">
+                <h1>관리자</h1>
+                <span class="who">@Model.AdminId 로 로그인</span>
+            </div>
+
+            <nav class="adm-nav" aria-label="관리 메뉴">
+                <a href="#members">회원</a>
+                <a href="#connections">접속 현황</a>
+                <a href="#stats">통계</a>
+                <a href="#usage">API 사용량</a>
+                <a href="#ratings">별점 평가</a>
+                <span class="sep" aria-hidden="true"></span>
+                <a href="#drive">Cloud Drive</a>
+                <a href="#poke">포켓몬스터 아스테라</a>
+            </nav>
+
+            <!-- ═══ 회원 ═══ -->
+            <section class="pane" id="pane-members" hidden>
+                <div class="pane-head"><h2>회원</h2><span class="sub" id="memberCount"></span><span class="sp"></span><input id="memberQ" type="search" placeholder="아이디·닉네임 검색" aria-label="회원 검색" /></div>
+                <div class="tbl-wrap">
+                    <table class="tbl">
+                        <thead><tr><th>아이디</th><th>닉네임</th><th>상태</th><th>권한</th><th class="hide-sm">가입일</th><th class="hide-sm">최근 로그인</th><th></th></tr></thead>
+                        <tbody id="memberRows"><tr><td colspan="7" class="empty">불러오는 중…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ═══ 접속 현황 ═══ -->
+            <section class="pane" id="pane-connections" hidden>
+                <div class="pane-head"><h2>접속 현황</h2><span class="sub">최근 5분 이내 · <b id="connCount">-</b></span><span class="sp"></span><button type="button" class="btn sm" id="connReload">새로고침</button></div>
+                <div class="tbl-wrap">
+                    <table class="tbl">
+                        <thead><tr><th>IP (일부 가림)</th><th>사용자</th><th>아이디</th><th>마지막 요청</th></tr></thead>
+                        <tbody id="connRows"><tr><td colspan="4" class="empty">불러오는 중…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ═══ 통계 ═══ -->
+            <section class="pane" id="pane-stats" hidden>
+                <div class="pane-head"><h2>통계</h2><span class="sub">최근 30일</span></div>
+                <dl class="facts">
+                    <div><dt>전체 회원</dt><dd id="st-members">-</dd></div>
+                    <div><dt>전체 검색</dt><dd id="st-searches">-</dd></div>
+                    <div><dt>전체 게시글</dt><dd id="st-posts">-</dd></div>
+                    <div><dt>전체 북마크</dt><dd id="st-bookmarks">-</dd></div>
+                </dl>
+                <div class="charts">
+                    <div class="chart"><h3>일별 가입자</h3><div class="box"><canvas id="chartSignups" aria-label="일별 가입자 막대 그래프"></canvas></div></div>
+                    <div class="chart"><h3>일별 검색량</h3><div class="box"><canvas id="chartSearches" aria-label="일별 검색량 선 그래프"></canvas></div></div>
+                    <div class="chart"><h3>일별 게시글</h3><div class="box"><canvas id="chartPosts" aria-label="일별 게시글 막대 그래프"></canvas></div></div>
+                </div>
+            </section>
+
+            <!-- ═══ API 사용량 ═══ -->
+            <section class="pane" id="pane-usage" hidden>
+                <div class="pane-head"><h2>검색 API 사용량</h2><span class="sub" id="usageLimits"></span></div>
+                <div class="tbl-wrap">
+                    <table class="tbl">
+                        <thead><tr><th>엔진</th><th class="num">오늘</th><th class="num">이번 달</th><th class="num">누적</th></tr></thead>
+                        <tbody id="usageRows"><tr><td colspan="4" class="empty">불러오는 중…</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ═══ 별점 평가 (Meta Search) ═══ -->
+            <section class="pane" id="pane-ratings" hidden>
+                <div class="pane-head"><h2>별점 평가</h2><span class="sub">Meta Search 검색 품질</span></div>
+                <dl class="facts">
+                    <div><dt>평균 별점</dt><dd id="avgRating">-</dd></div>
+                    <div><dt>평가 수</dt><dd id="totalCount">-</dd></div>
+                </dl>
+                <div class="rlist" id="ratingList"><p class="empty">불러오는 중…</p></div>
+            </section>
+
+            <!-- ═══ Cloud Drive ═══ -->
+            <section class="pane" id="pane-drive" hidden>
+                <div class="pane-head"><h2>Cloud Drive</h2><span class="sub">회원마다 5GB(휴지통 포함) · 운영·불법 파일 대응 목적으로만 열람하고, 삭제는 되돌릴 수 없습니다.</span></div>
+                <p class="note" id="dmsg">불러오는 중…</p>
+                <div id="dUsers" hidden>
+                    <div class="tbl-wrap">
+                        <table class="tbl">
+                            <thead><tr><th>아이디</th><th class="hide-sm">닉네임</th><th>사용량</th><th class="num">파일</th><th>한도 (GB)</th></tr></thead>
+                            <tbody id="dUserRows"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="dFiles" hidden>
+                    <div class="crumbs" id="dCrumbs"></div>
+                    <div class="tbl-wrap">
+                        <table class="tbl">
+                            <thead><tr><th>이름</th><th class="num">크기</th><th class="num hide-sm">수정</th><th></th></tr></thead>
+                            <tbody id="dFileRows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ 포켓몬스터 아스테라 (게임 기록·소포) ═══ -->
+            <section class="pane" id="pane-poke" hidden>
+                <div class="pane-head"><h2>포켓몬스터 아스테라</h2><span class="sub">회원별 게임 기록 보기·수정, 이상한 소포 보내기</span><span class="sp"></span><a class="btn sm" href="/pokemon">게임 열기</a></div>
+                <p class="note" id="pokeLoading">게임 데이터를 불러오는 중…</p>
+                <div class="poke-grid" id="pokeMain" hidden>
+                    <section class="box-line">
+                        <div class="ph"><b>회원</b><span class="sp"></span><input id="q" placeholder="아이디·닉네임·이름" style="width:150px" aria-label="게임 회원 검색" /><button type="button" id="reload">새로고침</button></div>
+                        <div class="plist" id="plist"><div class="empty">불러오는 중…</div></div>
+                    </section>
+                    <section class="box-line" id="detailPanel">
+                        <div class="empty">왼쪽에서 회원을 고르세요.</div>
+                    </section>
+                </div>
+                <!-- 이상한 소포: 포켓몬센터 배달원에게서 받는 선물 -->
+                <section class="box-line pc" id="pokeParcel" hidden>
+                    <div class="ph"><b>이상한 소포</b><span class="muted" style="font-size:13px">포켓몬센터 카운터 오른쪽 배달원에게 말을 걸면 받습니다 · 소포마다 계정당 1번</span></div>
+                    <div class="detail">
+                        <div class="sec"><h3>새 소포 만들기</h3>
+                            <div class="kv">
+                                <label>제목 (60자)<input id="pc-title" maxlength="60" placeholder="예: 오픈 기념 이로치 레쿠쟈"></label>
+                                <label>받는 사람<input id="pc-targets" placeholder="비우면 전원 · 아이디를 쉼표로"></label>
+                                <label>시작 (비우면 바로)<input id="pc-start" type="datetime-local"></label>
+                                <label>마감 (비우면 계속)<input id="pc-end" type="datetime-local"></label>
+                            </div>
+                            <label class="muted" style="display:block;margin-top:10px;font-size:12px">메시지 (400자, 소포를 받을 때 보여 줌)
+                                <textarea id="pc-msg" maxlength="400" style="width:100%;min-height:60px;margin-top:4px" placeholder="예: 아스테라에 오신 것을 환영합니다!"></textarea></label>
+                            <div class="row" style="margin-top:10px">
+                                <div class="picker"><input id="pc-sp" placeholder="포켓몬 (이름·ID·번호)" style="width:220px" autocomplete="off"><div class="list" id="pc-list" hidden></div></div>
+                                Lv <input id="pc-lv" type="number" min="1" max="100" value="30" style="width:64px">
+                                <label><input type="checkbox" id="pc-sh"> 이로치</label>
+                                <label><input type="checkbox" id="pc-iv" checked> 개체값 최대</label>
+                                <label><input type="checkbox" id="pc-gm"> 거다이맥스 인자</label>
+                                <button type="button" id="pc-addmon">포켓몬 추가</button>
+                            </div>
+                            <div class="row" style="margin-top:8px">
+                                <input id="pc-item" list="item-list" placeholder="도구 이름 또는 ID" style="width:220px">
+                                <input id="pc-itemn" type="number" min="1" max="999" value="1" style="width:76px">
+                                <button type="button" id="pc-additem">도구 추가</button>
+                            </div>
+                            <div id="pc-contents" class="muted" style="margin:12px 0">소포가 비어 있습니다.</div>
+                            <div class="row"><button type="button" class="pri" id="pc-create">소포 보내기</button><span id="pc-msgout" class="muted"></span></div>
+                        </div>
+                        <div class="sec"><h3>보낸 소포</h3><div id="pc-table" style="overflow-x:auto">불러오는 중…</div></div>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+    <script src="/js/theme.js" asp-append-version="true"></script>
+    <script src="/js/admin.js" asp-append-version="true"></script>
+</body>
+</html>

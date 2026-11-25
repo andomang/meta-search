@@ -1,0 +1,433 @@
+@page "/pokeindex"
+@model PokeIndexModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>포켓몬스터 아스테라 — 브라우저에서 바로 하는 오리지널 스토리 팬게임 | domang</title>
+    <meta name="description" content="신대륙 아스테라를 무대로 한 오리지널 스토리 팬게임. 설치 없이 PC·모바일 브라우저에서 바로 플레이하고, 진행 기록은 domang 계정에 저장됩니다." />
+    <!-- 검색엔진·공유 미리보기: 대표 주소 / Open Graph / 트위터 카드 / 구조화 데이터 -->
+    <link rel="canonical" href="https://domang.org/pokeindex" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="domang" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:url" content="https://domang.org/pokeindex" />
+    <meta property="og:title" content="포켓몬스터 아스테라 — 브라우저에서 바로 하는 오리지널 스토리 팬게임 | domang" />
+    <meta property="og:description" content="신대륙 아스테라를 무대로 한 오리지널 스토리 팬게임. 설치 없이 PC·모바일 브라우저에서 바로 플레이하고, 진행 기록은 domang 계정에 저장됩니다." />
+    <meta property="og:image" content="https://domang.org/img/og/pokemon.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="포켓몬스터 아스테라 — 브라우저에서 바로 하는 오리지널 스토리 팬게임 | domang" />
+    <meta name="twitter:description" content="신대륙 아스테라를 무대로 한 오리지널 스토리 팬게임. 설치 없이 PC·모바일 브라우저에서 바로 플레이하고, 진행 기록은 domang 계정에 저장됩니다." />
+    <meta name="twitter:image" content="https://domang.org/img/og/pokemon.jpg" />
+    <script type="application/ld+json">
+    {
+      "@@context": "https://schema.org",
+      "@@type": "VideoGame",
+      "name": "포켓몬스터 아스테라",
+      "url": "https://domang.org/pokemon",
+      "gamePlatform": [
+        "Web browser",
+        "PC",
+        "Mobile"
+      ],
+      "genre": "RPG",
+      "playMode": "SinglePlayer",
+      "inLanguage": "ko",
+      "author": {
+        "@@type": "Person",
+        "name": "안도영",
+        "url": "https://domang.org/",
+        "sameAs": [
+          "https://github.com/andomang"
+        ]
+      },
+      "description": "신대륙 아스테라를 무대로 한 오리지널 스토리 팬게임. 설치 없이 PC·모바일 브라우저에서 바로 플레이하고, 진행 기록은 domang 계정에 저장됩니다.",
+      "image": "https://domang.org/img/og/pokemon.jpg"
+    }
+    </script>
+    <!-- 파비콘 -->
+    <link rel="icon" href="/icons/icon-512.png" type="image/png" />
+    <!-- 테마: 저장된 선택이 있으면 그리기 전에 바로 적용 (깜빡임 방지). 없으면 기기 설정을 따름 -->
+    <script>
+        try { var t = localStorage.getItem('theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) { }
+    </script>
+    <!-- 본문 글꼴: Pretendard (메인 포트폴리오와 같음) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <!-- 소개 페이지 공통 스타일 (흰 바탕 편집 디자인, 다크 모드 포함) -->
+    <link rel="stylesheet" href="/css/project.css" asp-append-version="true" />
+    <style>
+        /* 출현 정보: 확률 요약은 항상 보이고, 지역별 표는 접어 둠 */
+        .enc-rules { display: grid; }
+        .enc-rule { display: grid; grid-template-columns: 7.5rem 1fr; gap: 12px; padding-block: 12px; border-top: 1px solid var(--rule); font-size: 14px; }
+        .enc-rule:first-child { border-top: 0; padding-top: 0; }
+        .enc-rule span { font-weight: 700; color: var(--accent); }
+        .enc-rule p { color: var(--ink-2); min-width: 0; }
+        .enc-rule b, .enc-lg b, .enc-map summary b { color: var(--ink); }
+        .enc-all { margin-top: 20px; border-top: 2px solid var(--rule-strong); }
+        .enc-all > summary {
+            cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+            padding-block: 16px; font-weight: 700;
+        }
+        .enc-all > summary::-webkit-details-marker, .enc-map summary::-webkit-details-marker { display: none; }
+        .enc-all > summary em { font-style: normal; font-weight: 500; font-size: 13px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 8px; }
+        .enc-all > summary em::after { content: "+"; font-size: 18px; line-height: 1; color: var(--ink); transition: transform .3s cubic-bezier(.16, 1, .3, 1); }
+        .enc-all[open] > summary em::after { transform: rotate(45deg); }
+        .enc-all > summary:hover { color: var(--accent); }
+        .enc-map { border-top: 1px solid var(--rule); }
+        .enc-map summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-block: 12px; }
+        .enc-map summary b { font-size: 15px; }
+        .enc-map summary em { font-style: normal; font-size: 12.5px; color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+        .enc-map summary:hover b { color: var(--accent); }
+        .enc-map[open] { padding-bottom: 8px; }
+        .enc-h { font-size: 12.5px; font-weight: 700; color: var(--ink-2); margin: 6px 0 8px; }
+        .enc-p { font-size: 13.5px; color: var(--ink-2); margin-bottom: 12px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 12px; font-size: 13.5px; }
+        .chip i { font-style: normal; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-left: 2px; }
+        .enc-lg { list-style: none; display: grid; gap: 8px; margin-bottom: 12px; }
+        .enc-lg li { font-size: 13.5px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+        .enc-lg small { flex-basis: 100%; color: var(--ink-3); font-size: 12.5px; }
+        .enc-lg .k { font-size: 11.5px; font-weight: 700; color: var(--accent); }
+        .enc-lg .k.myth { color: var(--ink-2); }
+        .enc-lg .k::after { content: " ·"; color: var(--ink-3); }
+        @@media (max-width: 640px) { .enc-rule { grid-template-columns: 1fr; gap: 2px; } }
+    </style>
+    <!-- 구글 애드센스 (설정에 게시자 ID가 있을 때만, 제외 경로 제외) -->
+    <partial name="_AdHead" />
+</head>
+<body class="p-poke">
+    <script>document.documentElement.classList.add('js');</script>
+    <!-- 광고: 넓은 화면(1290px 이상)에서 본문 양옆 고정 -->
+    <aside class="ad-side ad-left" aria-label="광고"><partial name="_AdUnit" model='@("side")' /></aside>
+    <aside class="ad-side ad-right" aria-label="광고"><partial name="_AdUnit" model='@("side")' /></aside>
+    <div class="wrap">
+        <!-- 상단: 포트폴리오로 / 테마 전환 / 바로가기 -->
+        <header class="topbar">
+            <a href="/" class="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>domang.org</a>
+            <div class="top-actions">
+                <button type="button" class="theme-btn" id="themeBtn" aria-label="다크 모드로 바꾸기">
+                    <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+                    <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+                </button>
+                <a href="/pokemon" class="go">게임 플레이<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+            </div>
+        </header>
+
+        <main>
+            <!-- 첫 화면: 제목 / 한 문단 / 상태 -->
+            <section class="hero">
+                <h1>포켓몬스터 <em>아스테라</em></h1>
+                <p class="lede">200년 전 가라앉았다가 “시공의 균열”과 함께 떠오른 신대륙 아스테라를 무대로 한 오리지널 스토리 팬게임입니다. 설치 없이 브라우저에서 바로 플레이합니다.</p>
+                <div class="facts"><span class="status"><span class="dot"></span>운영 중</span><span>2026</span><span>비영리 팬게임</span></div>
+            </section>
+
+            <!-- 실제 서비스 화면 (브라우저 창 틀) -->
+            <figure class="shot">
+                <div class="frame">
+                    <div class="chrome" aria-hidden="true"><i><b></b><b></b><b></b></i><span>domang.org/pokemon</span></div>
+                    <img class="pixel" src="/img/shots/pokemon.jpg" alt="포켓몬스터 아스테라 불씨마을 게임 화면" width="960" height="600" />
+                </div>
+                <figcaption>불씨마을 (실제 게임 화면). 1~9세대 포켓몬과 전설·환상 포켓몬이 사는 대륙을 탐험하며 8개 체육관과 포켓몬리그에 도전합니다.</figcaption>
+            </figure>
+
+            <!-- 주요 기능 -->
+            <section class="block">
+                <h2>주요 기능</h2>
+                <div>
+                    <ul class="feats">
+                        <li><h3>오리지널 스토리와 대륙</h3><p>체육관 8곳, 악당 조직 균열단, 사천왕과 챔피언, 엔딩 후 균열 지대와 배틀 타워까지. 챕터 카드와 모험 수첩이 다음 목표를 알려줍니다.</p></li>
+                        <li><h3>세대별 배틀 기믹</h3><p>메가진화, 다이맥스·거다이맥스, 테라스탈, Z기술, 원시회귀를 지원합니다. 맥스 레이드와 테라 레이드 둥지도 있습니다.</p></li>
+                        <li><h3>포켓몬 1025종 + 폼 438종</h3><p>지역 폼과 메가·거다이맥스 폼을 포함한 도감, 특성 310종, 기술 920개. 동료 포켓몬이 뒤를 따라 걷습니다.</p></li>
+                        <li><h3>회원 서버 저장</h3><p>domang.org 회원으로 로그인하면 기록과 키 설정이 계정에 저장되어 다른 기기에서도 이어서 할 수 있습니다.</p></li>
+                        <li><h3>PC · 모바일 지원</h3><p>키보드 키 설정, 배속(1~8배), 위치를 옮길 수 있는 모바일 가상 컨트롤러를 지원합니다.</p></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 광고: 본문 중간 (버튼·링크와 떨어진 자리) -->
+            <div class="ad-mid"><partial name="_AdUnit" model='@("inline")' /></div>
+
+            <!-- 출현 정보 (확률 요약 + 접힌 지역별 표) -->
+            <section class="block">
+                <h2>출현 정보</h2>
+                <div>
+            <!-- ENCOUNTERS:START (자동 생성: 게임 데이터에서 뽑은 출현 정보) -->
+        <div class="enc-rules">
+            <div class="enc-rule"><span>풀숲 야생 조우</span><p>풀숲에서 한 걸음마다 <b>9%</b></p></div>
+            <div class="enc-rule"><span>배회 전설</span><p>배지 5개 이후 풀숲 한 걸음마다 <b>약 0.45%</b> (1/220) · 엔테이, 라이코, 스이쿤, 라티아스, 라티오스, 토네로스, 볼트로스, 파이어, 썬더, 프리져, 크레세리아</p></div>
+            <div class="enc-rule"><span>환상의 풀숲</span><p>조우 1번당 <b>3%</b>가 전설·환상 125종 중 무작위(각 약 0.024%), 97%는 일반 900종 중 무작위(각 약 0.108%) · Lv.40~60</p></div>
+            <div class="enc-rule"><span>필드 전설·환상</span><p>맵에 서 있는 전설에게 말을 걸면 <b>100%</b> 전투 (조건이 있는 경우 조건을 만족해야 함) · 쓰러뜨려도 다시 나타남</p></div>
+            <div class="enc-rule"><span>이로치</span><p>야생 <b>1/512</b> (빛나는부적 1/128) · 필드 전설 1/100 · 레이드 1/200</p></div>
+        </div>
+        <details class="enc-all">
+                <summary>지역별 레벨·출현 포켓몬 보기 <em>21곳</em></summary>
+                <div class="enc-list">
+            <details class="enc-map">
+                <summary><b>1번도로</b><em>Lv.2~5</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">구구 <i>19.6%</i></span><span class="chip">꼬렛 <i>19.6%</i></span><span class="chip">꼬리선 <i>11.8%</i></span><span class="chip">비버니 <i>11.8%</i></span><span class="chip">요테리 <i>9.8%</i></span><span class="chip">영구스 <i>7.8%</i></span><span class="chip">탐리스 <i>7.8%</i></span><span class="chip">맛보돈 <i>5.9%</i></span><span class="chip">화살꼬빈 <i>2.9%</i></span><span class="chip">우르 <i>2.9%</i></span></div>
+            </details>
+            <details class="enc-map">
+                <summary><b>2번도로</b><em>Lv.5~9</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">캐터피 <i>12%</i></span><span class="chip">뿔충이 <i>12%</i></span><span class="chip">니드런♀ <i>10%</i></span><span class="chip">니드런♂ <i>10%</i></span><span class="chip">보르쥐 <i>10%</i></span><span class="chip">포챠나 <i>10%</i></span><span class="chip">지그제구리 <i>10%</i></span><span class="chip">찌르꼬 <i>9%</i></span><span class="chip">꼬링크 <i>8%</i></span><span class="chip">피카츄 <i>4%</i></span><span class="chip">랄토스 <i>3%</i></span><span class="chip">이브이 <i>2%</i></span></div>
+            </details>
+            <details class="enc-map">
+                <summary><b>초록숲</b><em>Lv.7~12 · 전설·환상 1 · 레이드 1</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">캐터피 <i>10%</i></span><span class="chip">뿔충이 <i>10%</i></span><span class="chip">단데기 <i>8%</i></span><span class="chip">딱충이 <i>8%</i></span><span class="chip">뚜벅쵸 <i>8%</i></span><span class="chip">파라스 <i>7%</i></span><span class="chip">콘팡 <i>7%</i></span><span class="chip">부우부 <i>7%</i></span><span class="chip">꼬몽울 <i>6%</i></span><span class="chip">두르보 <i>6%</i></span><span class="chip">피카츄 <i>5%</i></span><span class="chip">콩알뚜기 <i>5%</i></span><span class="chip">메이클 <i>5%</i></span><span class="chip">짜랑랑 <i>4%</i></span><span class="chip">치릴리 <i>4%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k myth">환상</span><b>세레비</b> Lv.40<small>오래된 사당이다. &quot;시간을 넘는 방울&quot;을 바치는 자리가 있다... (GS볼 필요)</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>3번도로</b><em>Lv.13~19 · 레이드 1</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">가디 <i>8.2%</i></span><span class="chip">포니타 <i>8.2%</i></span><span class="chip">알통몬 <i>8.2%</i></span><span class="chip">꼬마돌 <i>8.2%</i></span><span class="chip">메리프 <i>8.2%</i></span><span class="chip">식스테일 <i>7.1%</i></span><span class="chip">델빌 <i>7.1%</i></span><span class="chip">캐이시 <i>6.1%</i></span><span class="chip">암멍이 <i>6.1%</i></span><span class="chip">마크탕 <i>6.1%</i></span><span class="chip">썬더라이 <i>6.1%</i></span><span class="chip">블루 <i>6.1%</i></span><span class="chip">빠모 <i>5.1%</i></span><span class="chip">어리짱 <i>4.1%</i></span><span class="chip">미뇽 <i>2%</i></span><span class="chip">아공이 <i>1%</i></span><span class="chip">딥상어동 <i>1%</i></span><span class="chip">모노두 <i>1%</i></span></div>
+                <div class="enc-h">레이드</div><p class="enc-p">테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>챔피언로드</b><em>Lv.52~58</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">코산호 <i>7.8%</i></span><span class="chip">떨구새 <i>7.8%</i></span><span class="chip">깜눈크 <i>7.8%</i></span><span class="chip">자망칼 <i>7.2%</i></span><span class="chip">암팰리스 <i>7.2%</i></span><span class="chip">쉘곤 <i>6.6%</i></span><span class="chip">비조푸 <i>6.6%</i></span><span class="chip">미끄네일 <i>6.6%</i></span><span class="chip">핫삼 <i>5.4%</i></span><span class="chip">드라꼰 <i>4.8%</i></span><span class="chip">어흥염 <i>4.2%</i></span><span class="chip">메테노 <i>4.2%</i></span><span class="chip">훔처우 <i>4.2%</i></span><span class="chip">한카리아스 <i>3.6%</i></span><span class="chip">킬가르도 <i>3%</i></span><span class="chip">악비아르 <i>3%</i></span><span class="chip">콜로솔트 <i>3%</i></span><span class="chip">모토마 <i>2.4%</i></span><span class="chip">초염몽 <i>2.4%</i></span><span class="chip">암나이트 <i>2.4%</i></span></div>
+            </details>
+            <details class="enc-map">
+                <summary><b>5번도로 바위산길</b><em>Lv.30~35 · 레이드 2</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">마기라스 <i>9.9%</i></span><span class="chip">독개굴 <i>9.2%</i></span><span class="chip">케오퍼스 <i>8.4%</i></span><span class="chip">타격귀 <i>7.6%</i></span><span class="chip">마그카르고 <i>6.9%</i></span><span class="chip">시비꼬 <i>6.9%</i></span><span class="chip">곤율거니 <i>6.1%</i></span><span class="chip">맛보돈 <i>5.3%</i></span><span class="chip">롱스톤 <i>5.3%</i></span><span class="chip">갱도라 <i>5.3%</i></span><span class="chip">치라미 <i>4.6%</i></span><span class="chip">비조푸 <i>4.6%</i></span><span class="chip">자말라 <i>3.8%</i></span><span class="chip">레트라 <i>3.8%</i></span><span class="chip">왕큰부리 <i>3.1%</i></span><span class="chip">일레도리자드 <i>3.1%</i></span><span class="chip">버섯모 <i>3.1%</i></span><span class="chip">다꼬리 <i>3.1%</i></span></div>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지, 테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>6번도로 설원</b><em>Lv.34~39 · 전설·환상 2 · 레이드 2</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">야도란 <i>8.2%</i></span><span class="chip">마임꽁꽁 <i>8.2%</i></span><span class="chip">누오 <i>7.6%</i></span><span class="chip">팽도리 <i>7.6%</i></span><span class="chip">꾸왁스 <i>7%</i></span><span class="chip">누리레느 <i>7%</i></span><span class="chip">어니부기 <i>6.3%</i></span><span class="chip">씨카이저 <i>6.3%</i></span><span class="chip">키요공 <i>5.7%</i></span><span class="chip">늪짱이 <i>5.7%</i></span><span class="chip">샤프니아 <i>5.7%</i></span><span class="chip">발챙이 <i>4.4%</i></span><span class="chip">두까비 <i>3.8%</i></span><span class="chip">웨이니발 <i>3.8%</i></span><span class="chip">크레베이스 <i>3.2%</i></span><span class="chip">크랩 <i>3.2%</i></span><span class="chip">초라기 <i>3.2%</i></span><span class="chip">시라칸 <i>3.2%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>프리져</b> Lv.45<small>차가운 기운이 맴돈다... (배지 5개 이상)</small></li>
+                    <li><span class="k leg">전설</span><b>레지아이스</b> Lv.45<small>고대 비석: &quot;얼음의 마음을 가진 자가 선두에 설 때 거인은 깨어난다&quot; (얼음 타입을 선두로)</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지, 테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>7번도로 사막</b><em>Lv.38~43 · 전설·환상 2 · 레이드 2</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">활화르바 <i>7.8%</i></span><span class="chip">메꾸리 <i>7.2%</i></span><span class="chip">물거미 <i>7.2%</i></span><span class="chip">아켄 <i>6.6%</i></span><span class="chip">이올브 <i>6.6%</i></span><span class="chip">파쪼옥 <i>6.6%</i></span><span class="chip">베라카스 <i>6%</i></span><span class="chip">야도뇽 <i>6%</i></span><span class="chip">바오키 <i>5.4%</i></span><span class="chip">코리갑 <i>5.4%</i></span><span class="chip">강철톤 <i>5.4%</i></span><span class="chip">메가자리 <i>5.4%</i></span><span class="chip">카르본 <i>4.8%</i></span><span class="chip">세꿀버리 <i>4.8%</i></span><span class="chip">페이검 <i>4.2%</i></span><span class="chip">킬라플로르 <i>3.6%</i></span><span class="chip">누오 <i>3.6%</i></span><span class="chip">모래성이당 <i>3%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>썬더</b> Lv.48<small>모래폭풍 속에서 번개가 친다... (배지 6개 이상)</small></li>
+                    <li><span class="k leg">전설</span><b>레지락</b> Lv.48<small>고대 비석: &quot;바위의 마음을 가진 자가 선두에 설 때 거인은 깨어난다&quot; (바위 타입을 선두로)</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지, 테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>8번도로 산호해안</b><em>Lv.42~47 · 전설·환상 2 · 레이드 2</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">물짱이 <i>8.6%</i></span><span class="chip">루브도 <i>8.6%</i></span><span class="chip">거북손손 <i>8.6%</i></span><span class="chip">흉내내 <i>7.9%</i></span><span class="chip">토게틱 <i>7.2%</i></span><span class="chip">플라제스 <i>6.5%</i></span><span class="chip">오롱털 <i>6.5%</i></span><span class="chip">동챙이 <i>6.5%</i></span><span class="chip">왕구리 <i>5%</i></span><span class="chip">벌차이 <i>4.3%</i></span><span class="chip">태깅구르 <i>4.3%</i></span><span class="chip">엠페르트 <i>4.3%</i></span><span class="chip">버터플 <i>4.3%</i></span><span class="chip">해피너스 <i>4.3%</i></span><span class="chip">웨이니발 <i>3.6%</i></span><span class="chip">어치르돈 <i>3.6%</i></span><span class="chip">네이티 <i>2.9%</i></span><span class="chip">어니부기 <i>2.9%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>라티아스</b> Lv.50<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>라티오스</b> Lv.50<small>조건 없음</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지, 테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>9번도로 화산지대</b><em>Lv.46~51 · 전설·환상 3 · 레이드 2</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">자망칼 <i>7.6%</i></span><span class="chip">파이숭이 <i>7.6%</i></span><span class="chip">뽀록나 <i>7.6%</i></span><span class="chip">춤추새 <i>7%</i></span><span class="chip">영치코 <i>7%</i></span><span class="chip">다탱구 <i>7%</i></span><span class="chip">질뻐기 <i>7%</i></span><span class="chip">미끄래곤 <i>7%</i></span><span class="chip">다태우지네 <i>5.8%</i></span><span class="chip">니드킹 <i>5.2%</i></span><span class="chip">아리아도스 <i>5.2%</i></span><span class="chip">액슨도 <i>4.1%</i></span><span class="chip">불켜미 <i>3.5%</i></span><span class="chip">악비르 <i>2.9%</i></span><span class="chip">미끄네일 <i>2.9%</i></span><span class="chip">망나뇽 <i>2.9%</i></span><span class="chip">마그마 <i>2.9%</i></span><span class="chip">모르페코 <i>2.3%</i></span><span class="chip">화염레오 <i>2.3%</i></span><span class="chip">바오프 <i>2.3%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>파이어</b> Lv.50<small>불꽃의 날개가 화산 위를 맴돈다... (배지 7개 이상)</small></li>
+                    <li><span class="k leg">전설</span><b>레지스틸</b> Lv.50<small>고대 비석: &quot;강철의 마음을 가진 자가 선두에 설 때 거인은 깨어난다&quot; (강철 타입을 선두로)</small></li>
+                    <li><span class="k leg">전설</span><b>히드런</b> Lv.52<small>용암 아래에서 무언가가 꿈틀거린다... (배지 8개)</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지, 테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>화산마을 용암</b><em>전설·환상 1</em></summary>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k myth">환상</span><b>볼케니온</b> Lv.55<small>증기가 뿜어져 나온다... (배지 8개)</small></li>
+                </ul>
+            </details>
+            <details class="enc-map">
+                <summary><b>시원의 길</b><em>Lv.50~55 · 레이드 1</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">몰드류 <i>7.2%</i></span><span class="chip">파라블레이즈 <i>7.2%</i></span><span class="chip">나목령 <i>7.2%</i></span><span class="chip">픽시 <i>6.6%</i></span><span class="chip">드래펄트 <i>5.5%</i></span><span class="chip">플라엣테 <i>5.5%</i></span><span class="chip">오케이징 <i>5.5%</i></span><span class="chip">루주라 <i>5.5%</i></span><span class="chip">에브이 <i>5.5%</i></span><span class="chip">애프룡 <i>5.5%</i></span><span class="chip">방패톱스 <i>5%</i></span><span class="chip">짜랑고우거 <i>5%</i></span><span class="chip">슈쁘 <i>4.4%</i></span><span class="chip">엠페르트 <i>4.4%</i></span><span class="chip">냐오닉스 <i>4.4%</i></span><span class="chip">드닐레이브 <i>3.9%</i></span><span class="chip">부르르룸 <i>3.9%</i></span><span class="chip">액스라이즈 <i>2.8%</i></span><span class="chip">폭거북스 <i>2.8%</i></span><span class="chip">네이티오 <i>2.2%</i></span></div>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>환상의 풀숲</b><em>Lv.40~60 · 모든 포켓몬 · 레이드 1</em></summary>
+                <div class="enc-h">풀숲 야생</div><p class="enc-p">도감의 모든 포켓몬(1025종)이 나온다. 조우 1번당 3%는 전설·환상, 97%는 일반 포켓몬. 전설·환상이 나오면 전설 전투 연출로 시작한다.</p>
+                <div class="enc-h">레이드</div><p class="enc-p">테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 하늘의 기둥</b><em>Lv.55~65 · 전설·환상 11</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">벼리짱 <i>6.1%</i></span><span class="chip">데덴네 <i>6.1%</i></span><span class="chip">한바이트 <i>6.1%</i></span><span class="chip">에리본 <i>6.1%</i></span><span class="chip">통통코 <i>5.7%</i></span><span class="chip">액스라이즈 <i>5.7%</i></span><span class="chip">버랜지나 <i>5.7%</i></span><span class="chip">마릴 <i>5.2%</i></span><span class="chip">미끄래곤 <i>5.2%</i></span><span class="chip">크라파 <i>5.2%</i></span><span class="chip">메테노 <i>4.7%</i></span><span class="chip">드래캄 <i>4.7%</i></span><span class="chip">야부엉 <i>4.7%</i></span><span class="chip">비브라바 <i>4.2%</i></span><span class="chip">애프룡 <i>3.8%</i></span><span class="chip">두드리짱 <i>3.3%</i></span><span class="chip">아켄 <i>2.8%</i></span><span class="chip">꼬이밍고 <i>2.8%</i></span><span class="chip">모토마 <i>2.4%</i></span><span class="chip">심보러 <i>1.9%</i></span><span class="chip">음뱃 <i>1.9%</i></span><span class="chip">춤추새 <i>1.9%</i></span><span class="chip">토게틱 <i>1.9%</i></span><span class="chip">가디안 <i>1.9%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>레쿠쟈</b> Lv.70<small>하늘의 왕은 바다와 대지의 왕이 진정될 때 내려온다. (가이오가·그란돈 포획)</small></li>
+                    <li><span class="k myth">환상</span><b>테오키스</b> Lv.65<small>운석의 파편이 빛나고 있다... (레쿠쟈 포획 후)</small></li>
+                    <li><span class="k leg">전설</span><b>루기아</b> Lv.70<small>은빛 날개는 밤에만 나타난다. (밤 20시~6시)</small></li>
+                    <li><span class="k leg">전설</span><b>칠색조</b> Lv.70<small>무지갯빛 날개는 낮에만 나타난다. (낮 6시~18시)</small></li>
+                    <li><span class="k leg">전설</span><b>토네로스</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>볼트로스</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>랜드로스</b> Lv.65<small>바람과 번개를 다스린 자에게 풍요의 신이 나타난다.</small></li>
+                    <li><span class="k leg">전설</span><b>러브로스</b> Lv.65<small>세 신을 만난 뒤 사랑의 신이 찾아온다.</small></li>
+                    <li><span class="k leg">전설</span><b>제르네아스</b> Lv.70<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>이벨타르</b> Lv.70<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>지가르데</b> Lv.70<small>생명과 파괴의 균형이 맞을 때 질서가 깨어난다.</small></li>
+                </ul>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 태고의 바다</b><em>Lv.55~65 · 전설·환상 2</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">딥상어동 <i>6.4%</i></span><span class="chip">고지 <i>6.4%</i></span><span class="chip">로토스 <i>5.9%</i></span><span class="chip">갑주무사 <i>5.9%</i></span><span class="chip">거북손데스 <i>5.4%</i></span><span class="chip">투구푸스 <i>5.4%</i></span><span class="chip">만마드 <i>5%</i></span><span class="chip">시드라 <i>5%</i></span><span class="chip">치갈기 <i>5%</i></span><span class="chip">왕콘치 <i>4.5%</i></span><span class="chip">쥬쥬 <i>4.5%</i></span><span class="chip">쥬레곤 <i>4.5%</i></span><span class="chip">골덕 <i>4%</i></span><span class="chip">웨이니발 <i>4%</i></span><span class="chip">어치르돈 <i>4%</i></span><span class="chip">탱그릴 <i>4%</i></span><span class="chip">만타인 <i>3.5%</i></span><span class="chip">탱탱겔 <i>3%</i></span><span class="chip">야도란 <i>2.5%</i></span><span class="chip">네오라이트 <i>2.5%</i></span><span class="chip">늪짱이 <i>2.5%</i></span><span class="chip">엠페르트 <i>2.5%</i></span><span class="chip">슈륙챙이 <i>2%</i></span><span class="chip">라프라스 <i>2%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>가이오가</b> Lv.70<small>깊은 바다가 무언가를 기다린다... (쪽빛 구슬 필요)</small></li>
+                    <li><span class="k leg">전설</span><b>그란돈</b> Lv.70<small>대지가 뜨겁게 들끓는다... (붉은 구슬 필요)</small></li>
+                </ul>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 시공의 신전</b><em>Lv.55~65 · 전설·환상 12</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">미라몽 <i>7.2%</i></span><span class="chip">야돈 <i>6.7%</i></span><span class="chip">데스판 <i>6.1%</i></span><span class="chip">대도각참 <i>6.1%</i></span><span class="chip">마자 <i>5.6%</i></span><span class="chip">랑딸랑 <i>5.6%</i></span><span class="chip">몸지브림 <i>5.6%</i></span><span class="chip">산호르곤 <i>4.4%</i></span><span class="chip">가비루사 <i>4.4%</i></span><span class="chip">칼라마네로 <i>4.4%</i></span><span class="chip">야느와르몽 <i>3.9%</i></span><span class="chip">나이킹 <i>3.9%</i></span><span class="chip">치렁 <i>3.9%</i></span><span class="chip">안농 <i>3.9%</i></span><span class="chip">타타륜 <i>3.3%</i></span><span class="chip">클레피 <i>3.3%</i></span><span class="chip">껍질몬 <i>3.3%</i></span><span class="chip">아이앤트 <i>3.3%</i></span><span class="chip">맘박쥐 <i>3.3%</i></span><span class="chip">이올브 <i>2.8%</i></span><span class="chip">대코파스 <i>2.2%</i></span><span class="chip">기기어르 <i>2.2%</i></span><span class="chip">데스니칸 <i>2.2%</i></span><span class="chip">로토무 <i>2.2%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>디아루가</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>펄기아</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>기라티나</b> Lv.72<small>시간과 공간의 신을 모두 만났을 때 반전세계의 문이 열린다.</small></li>
+                    <li><span class="k myth">환상</span><b>아르세우스</b> Lv.80<small>창조의 제단. &quot;시간·공간·반물질의 신을 거느린 자만이 알을 볼 수 있다&quot;</small></li>
+                    <li><span class="k leg">전설</span><b>유크시</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>엠라이트</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>아그놈</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>지라치</b> Lv.60<small>별에 소원을 비는 시간은 밤뿐이다. (밤 20시~6시)</small></li>
+                    <li><span class="k myth">환상</span><b>다크라이</b> Lv.65<small>악몽은 밤에만 찾아온다.</small></li>
+                    <li><span class="k leg">전설</span><b>크레세리아</b> Lv.65<small>초승달의 빛은 낮의 균열에서 빛난다.</small></li>
+                    <li><span class="k myth">환상</span><b>쉐이미</b> Lv.55<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>비크티니</b> Lv.55<small>조건 없음</small></li>
+                </ul>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 진실과 이상의 탑</b><em>Lv.55~65 · 전설·환상 9</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">창파나이트 <i>5.8%</i></span><span class="chip">번치코 <i>5.8%</i></span><span class="chip">폭거북스 <i>5.8%</i></span><span class="chip">불화살빈 <i>5.3%</i></span><span class="chip">드니꽁 <i>5.3%</i></span><span class="chip">제브라이카 <i>5.3%</i></span><span class="chip">파비코리 <i>5.3%</i></span><span class="chip">달막화 <i>5.3%</i></span><span class="chip">앤티골 <i>4.8%</i></span><span class="chip">이븐곰 <i>4.8%</i></span><span class="chip">델빌 <i>4.8%</i></span><span class="chip">카디나르마 <i>4.8%</i></span><span class="chip">비조도 <i>4.3%</i></span><span class="chip">토쇠골 <i>4.3%</i></span><span class="chip">꼬이밍고 <i>3.8%</i></span><span class="chip">둔타 <i>3.8%</i></span><span class="chip">드래캄 <i>2.9%</i></span><span class="chip">불카모스 <i>2.9%</i></span><span class="chip">블레이범 <i>2.9%</i></span><span class="chip">저승갓숭 <i>2.9%</i></span><span class="chip">마그케인 <i>2.4%</i></span><span class="chip">포니타 <i>2.4%</i></span><span class="chip">일레도리자드 <i>2.4%</i></span><span class="chip">음번 <i>1.9%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>레시라무</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>제크로무</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>큐레무</b> Lv.72<small>진실과 이상이 만날 때 공허한 얼음이 깨어난다.</small></li>
+                    <li><span class="k leg">전설</span><b>코바르온</b> Lv.62<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>테라키온</b> Lv.62<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>비리디온</b> Lv.62<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>케르디오</b> Lv.60<small>세 성검사를 만난 뒤 어린 성검사가 찾아온다.</small></li>
+                    <li><span class="k myth">환상</span><b>메로엣타</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>게노세크트</b> Lv.60<small>조건 없음</small></li>
+                </ul>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 일륜월륜의 제단</b><em>Lv.55~65 · 전설·환상 10</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">칼라마네로 <i>6.3%</i></span><span class="chip">페이검 <i>6.3%</i></span><span class="chip">뷰티플라이 <i>6.3%</i></span><span class="chip">모아머 <i>6.3%</i></span><span class="chip">구르데 <i>6.3%</i></span><span class="chip">보송송 <i>5.8%</i></span><span class="chip">멜리시 <i>5.8%</i></span><span class="chip">비비용 <i>5.8%</i></span><span class="chip">깨비물거미 <i>5.8%</i></span><span class="chip">쏘콘 <i>4.3%</i></span><span class="chip">오뚝군 <i>3.8%</i></span><span class="chip">스트린더 <i>3.8%</i></span><span class="chip">슬리퍼 <i>3.8%</i></span><span class="chip">카디나르마 <i>3.8%</i></span><span class="chip">라이츄 <i>3.4%</i></span><span class="chip">왕자리 <i>2.9%</i></span><span class="chip">쏘겨모 <i>2.9%</i></span><span class="chip">브리무음 <i>2.9%</i></span><span class="chip">콩알뚜기 <i>2.4%</i></span><span class="chip">두드리짱 <i>2.4%</i></span><span class="chip">목도리키텔 <i>2.4%</i></span><span class="chip">킬리아 <i>2.4%</i></span><span class="chip">마휘핑 <i>2.4%</i></span><span class="chip">마릴 <i>1.9%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>솔가레오</b> Lv.72<small>태양의 사자는 낮에 나타난다.</small></li>
+                    <li><span class="k leg">전설</span><b>루나아라</b> Lv.72<small>달의 박쥐는 밤에 나타난다.</small></li>
+                    <li><span class="k leg">전설</span><b>네크로즈마</b> Lv.75<small>태양과 달을 모두 얻었을 때 빛을 삼키는 자가 나타난다.</small></li>
+                    <li><span class="k leg">전설</span><b>카푸꼬꼬꼭</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>카푸나비나</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>카푸브루루</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>카푸느지느</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>마기아나</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>마샤도</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>제라오라</b> Lv.60<small>조건 없음</small></li>
+                </ul>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 잠든 숲과 왕관 설원</b><em>Lv.55~65 · 전설·환상 11 · 레이드 1</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">마임꽁꽁 <i>7%</i></span><span class="chip">쌔비냥 <i>6.5%</i></span><span class="chip">클레피 <i>6.5%</i></span><span class="chip">헬가 <i>5.9%</i></span><span class="chip">단칼빙 <i>5.9%</i></span><span class="chip">동탁군 <i>5.9%</i></span><span class="chip">대도각참 <i>5.4%</i></span><span class="chip">데덴네 <i>4.9%</i></span><span class="chip">바우첼 <i>4.3%</i></span><span class="chip">씨카이저 <i>4.3%</i></span><span class="chip">마셰이드 <i>3.8%</i></span><span class="chip">가디안 <i>3.8%</i></span><span class="chip">쥬레곤 <i>3.8%</i></span><span class="chip">포챠나 <i>3.8%</i></span><span class="chip">마릴 <i>3.8%</i></span><span class="chip">훔처우 <i>3.8%</i></span><span class="chip">딜리버드 <i>3.2%</i></span><span class="chip">빙큐보 <i>3.2%</i></span><span class="chip">에리본 <i>2.7%</i></span><span class="chip">나루림 <i>2.7%</i></span><span class="chip">화강돌 <i>2.2%</i></span><span class="chip">대왕끼리동 <i>2.2%</i></span><span class="chip">가로막구리 <i>2.2%</i></span><span class="chip">블래키 <i>2.2%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>자시안</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>자마젠타</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>무한다이노</b> Lv.75<small>검과 방패가 모일 때 무한의 거대한 힘이 눈을 뜬다.</small></li>
+                    <li><span class="k leg">전설</span><b>레지에레키</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>레지드라고</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>레지기가스</b> Lv.72<small>바위·얼음·강철의 거인을 모두 거느리면 왕이 깨어난다.</small></li>
+                    <li><span class="k leg">전설</span><b>버드렉스</b> Lv.70<small>왕은 애마를 데려온 자 앞에 나타난다. (블리자포스 또는 레이스포스)</small></li>
+                    <li><span class="k leg">전설</span><b>블리자포스</b> Lv.68<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>레이스포스</b> Lv.68<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>치고마</b> Lv.60<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>자루도</b> Lv.60<small>조건 없음</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">맥스 레이드 둥지 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 에어리어 제로</b><em>Lv.55~65 · 전설·환상 11 · 레이드 1</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">니드런♂ <i>6.3%</i></span><span class="chip">한카리아스 <i>6.3%</i></span><span class="chip">밤선인 <i>6.3%</i></span><span class="chip">모노두 <i>6.3%</i></span><span class="chip">니드리노 <i>6.3%</i></span><span class="chip">드래펄트 <i>6.3%</i></span><span class="chip">삼삼드래 <i>5.3%</i></span><span class="chip">스트린더 <i>5.3%</i></span><span class="chip">화강돌 <i>4.7%</i></span><span class="chip">또도가스 <i>4.2%</i></span><span class="chip">일레즌 <i>4.2%</i></span><span class="chip">보만다 <i>4.2%</i></span><span class="chip">크리만 <i>3.7%</i></span><span class="chip">다탱구 <i>3.7%</i></span><span class="chip">백솜모카 <i>3.7%</i></span><span class="chip">미끄네일 <i>3.7%</i></span><span class="chip">조로아 <i>3.2%</i></span><span class="chip">솜솜코 <i>3.2%</i></span><span class="chip">드래피온 <i>2.6%</i></span><span class="chip">모아머 <i>2.1%</i></span><span class="chip">세비퍼 <i>2.1%</i></span><span class="chip">어래곤 <i>2.1%</i></span><span class="chip">마스카나 <i>2.1%</i></span><span class="chip">자망칼 <i>2.1%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>코라이돈</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>미라이돈</b> Lv.72<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>총지엔</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>파오젠</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>딩루</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>위유이</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>조타구</b> Lv.66<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>이야후</b> Lv.66<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>기로치</b> Lv.66<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>오거폰</b> Lv.68<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>복숭악동</b> Lv.70<small>세 충신을 모두 모으면 그들의 주인이 찾아온다.</small></li>
+                </ul>
+                <div class="enc-h">레이드</div><p class="enc-p">테라 레이드 결정 · 매일 출현 포켓몬이 바뀜 (맥스 레이드는 배지 5개, 테라 레이드는 배지 6개부터)</p>
+            </details>
+            <details class="enc-map">
+                <summary><b>균열 지대: 기원의 동굴</b><em>Lv.55~65 · 전설·환상 9</em></summary>
+                <div class="enc-h">풀숲 야생 (조우 1번당 확률)</div><div class="chips"><span class="chip">부란다 <i>6.5%</i></span><span class="chip">테일로 <i>6.5%</i></span><span class="chip">데스판 <i>6.5%</i></span><span class="chip">아쿠스타 <i>6.5%</i></span><span class="chip">펌킨인 <i>6%</i></span><span class="chip">탱탱겔 <i>5.5%</i></span><span class="chip">대로트 <i>5.5%</i></span><span class="chip">산호르곤 <i>5%</i></span><span class="chip">사철록 <i>4.5%</i></span><span class="chip">해피너스 <i>4.5%</i></span><span class="chip">밀탱크 <i>4.5%</i></span><span class="chip">탱그릴 <i>4%</i></span><span class="chip">쌔비냥 <i>4%</i></span><span class="chip">푸푸린 <i>4%</i></span><span class="chip">화강돌 <i>3.5%</i></span><span class="chip">구구 <i>3.5%</i></span><span class="chip">노공룡 <i>3%</i></span><span class="chip">포푸니라 <i>2.5%</i></span><span class="chip">태깅구르 <i>2.5%</i></span><span class="chip">워글 <i>2.5%</i></span><span class="chip">블래키 <i>2.5%</i></span><span class="chip">에브이 <i>2.5%</i></span><span class="chip">키키링 <i>2%</i></span><span class="chip">찌르버드 <i>2%</i></span></div>
+                <div class="enc-h">필드의 전설·환상 (말 걸면 전투)</div><ul class="enc-lg">
+                    <li><span class="k leg">전설</span><b>뮤츠</b> Lv.75<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>뮤</b> Lv.60<small>분홍빛 그림자가 스쳐 지나갔다... (뮤츠 포획 후) · 맵 안을 돌아다님</small></li>
+                    <li><span class="k myth">환상</span><b>후파</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>디안시</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>마나피</b> Lv.50<small>조건 없음</small></li>
+                    <li><span class="k myth">환상</span><b>멜탄</b> Lv.50<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>엔테이</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>라이코</b> Lv.65<small>조건 없음</small></li>
+                    <li><span class="k leg">전설</span><b>스이쿤</b> Lv.65<small>조건 없음</small></li>
+                </ul>
+            </details>
+        </div>
+        </details>
+            <!-- ENCOUNTERS:END -->
+                </div>
+            </section>
+
+            <!-- 출처와 안내 -->
+            <section class="block">
+                <h2>출처와 안내</h2>
+                <div>
+                    <p class="note"><strong>에셋 출처:</strong> 그래픽·사운드·데이터는 팬게임 <strong>Pokemon: Another Red</strong>(제작 YOUNG)의 리소스를 사용했습니다. Another Red가 사용한 Pokémon Essentials(Poccil, Maruno 외), 플러그인 및 스프라이트·타일·음악 리소스 제작자들의 크레딧은 원작 게임의 Credit.txt를 따릅니다.</p>
+                    <p class="note">이 게임은 비영리 <strong>팬메이드 프로젝트</strong>입니다. 포켓몬스터는 (주)포켓몬, 닌텐도, 게임프리크의 등록상표입니다. 게임 내 수익 창출은 일절 없습니다.</p>
+                </div>
+            </section>
+
+            <!-- 기술 -->
+            <section class="block">
+                <h2>기술</h2>
+                <div>
+                    <table class="stack">
+                        <tr><th scope="row">게임</th><td>HTML5 Canvas · Vanilla JavaScript</td></tr>
+                        <tr><th scope="row">서버</th><td>ASP.NET Core 8 · PostgreSQL</td></tr>
+                        <tr><th scope="row">운영</th><td>Raspberry Pi</td></tr>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 광고: 본문 끝(기술 소개)과 '열기' 버튼 구역 사이 — 링크·버튼에 붙지 않게 위아래 여백 + 구분선 -->
+            <div class="ad-mid"><partial name="_AdUnit" model='@("inline")' /></div>
+            <!-- 직접 써 보기 -->
+            <section class="cta">
+                <p>지금 모험을 시작하세요.</p>
+                <a href="/pokemon" class="go big">게임 플레이<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
+            </section>
+
+            <!-- 다른 프로젝트로 바로 이동 -->
+            <nav class="others" aria-label="다른 프로젝트">
+                <h2>다른 프로젝트</h2>
+                <ul>
+                    <li><a href="/metaindex"><b>Meta Search</b><span>통합 검색엔진<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span></a></li>
+                    <li><a href="/driveindex"><b>Cloud Drive</b><span>개인 클라우드 드라이브<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span></a></li>
+                    <li><a href="/ottindex"><b>OTT Multi-View</b><span>Windows 데스크톱 앱<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span></a></li>
+                </ul>
+            </nav>
+
+        </main>
+
+        <!-- 연락처 & 저작권 -->
+        <footer class="fine">
+            <span>&copy; 2026 안도영 · <a href="mailto:metasearch@@domang.org">metasearch@@domang.org</a> · 010-2583-1894</span>
+            <a href="/Privacy" class="u">개인정보처리방침</a>
+        </footer>
+    </div>
+    <script src="/js/theme.js" asp-append-version="true"></script>
+</body>
+</html>

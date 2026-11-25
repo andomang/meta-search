@@ -1,0 +1,23 @@
+# domang.org robots.txt
+#   공개 페이지는 모두 수집 허용. 아래는 검색 결과에 보여 줄 내용이 없는 주소만 막음
+User-agent: *
+Allow: /
+
+# 페이지 안 스크립트가 쓰는 내부 동작 주소(?handler=)와 API — 예전에 수집돼 404·5xx 보고가 났음
+Disallow: /api/
+Disallow: /*?handler=
+Disallow: /*&handler=
+
+# 관리자·로그인해야 보이는 개인 화면
+Disallow: /admin
+Disallow: /Admin
+Disallow: /drive/
+Disallow: /metasearch/admin
+Disallow: /metasearch/settings
+Disallow: /metasearch/bookmarks
+Disallow: /metasearch/dashboard
+Disallow: /metasearch/community/write
+Disallow: /metasearch/community/edit
+Disallow: /Logout
+
+Sitemap: https://domang.org/sitemap.xml

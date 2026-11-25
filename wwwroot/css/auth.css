@@ -1,0 +1,69 @@
+/* ─────────────────────────────────────────────────────────────
+   domang 통합 계정 창 (로그인 / 회원가입 / 아이디·비밀번호 찾기)
+   /js/auth.js 가 만들어 넣음. 색은 페이지의 토큰(--paper, --ink …)을 그대로 씀
+   (토큰이 없는 페이지에서도 보이도록 기본값을 함께 둠)
+   ───────────────────────────────────────────────────────────── */
+.da-dialog {
+    border: 0; padding: 0; margin: auto; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+    border-radius: 14px; background: var(--paper, #fff); color: var(--ink, #15161a);
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .45), 0 8px 20px -8px rgba(0, 0, 0, .25);
+    overflow: auto;
+}
+.da-dialog::backdrop { background: rgba(15, 16, 18, .45); backdrop-filter: blur(3px); }
+/* 숨김 속성이 레이아웃 지정(display:grid 등)에 덮이지 않게 — 예전엔 인증코드·새 비밀번호 칸이 처음부터 보였음 */
+.da [hidden], .da-dialog [hidden] { display: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+    .da-dialog[open] { animation: da-in .35s cubic-bezier(.16, 1, .3, 1); }
+    .da-dialog[open]::backdrop { animation: da-fade .3s ease; }
+}
+@keyframes da-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes da-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.da { padding: 26px 24px 22px; font-size: 15px; line-height: 1.55; word-break: keep-all; }
+.da-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.da-head h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
+.da-x { width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--rule, #e7e5e0); background: transparent; color: inherit; cursor: pointer; display: grid; place-items: center; }
+.da-x:hover { border-color: var(--ink, #15161a); }
+.da-x svg { width: 16px; height: 16px; }
+/* 통합 계정 안내 */
+.da-note { font-size: 13.5px; color: var(--ink-2, #4c5058); margin-bottom: 18px; }
+.da-note strong { color: var(--ink, #15161a); }
+
+/* 로그인 ↔ 회원가입 전환 탭 */
+.da-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: var(--tint, #f6f5f2); margin-bottom: 18px; }
+.da-tabs button { flex: 1; height: 36px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2, #4c5058); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.da-tabs button[aria-selected="true"] { background: var(--paper, #fff); color: var(--ink, #15161a); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+
+.da form { display: grid; gap: 12px; }
+.da label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; color: var(--ink-2, #4c5058); }
+.da input {
+    width: 100%; height: 44px; padding: 0 12px; border-radius: 8px;
+    border: 1px solid var(--rule, #e7e5e0); background: var(--paper, #fff); color: var(--ink, #15161a);
+    font: inherit; font-size: 16px;   /* 16px: 아이폰 자동 확대 방지 */
+}
+.da input:focus { outline: none; border-color: var(--accent, #d9480f); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #d9480f) 18%, transparent); }
+.da input::placeholder { color: var(--ink-3, #6b7079); }
+.da .row2 { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.da .hint { font-size: 12.5px; font-weight: 500; color: var(--ink-3, #6b7079); min-height: 1em; }
+.da .hint.ok { color: var(--live, #2f9e44); }
+.da .hint.bad { color: #d6336c; }
+
+.da-btn {
+    height: 44px; padding: 0 16px; border: 0; border-radius: 8px; cursor: pointer;
+    background: var(--ink, #15161a); color: var(--paper, #fff); font: inherit; font-size: 15px; font-weight: 700;
+    transition: background-color .2s ease, opacity .2s ease;
+}
+.da-btn:hover { background: var(--accent, #d9480f); }
+.da-btn:disabled { opacity: .55; cursor: default; background: var(--ink, #15161a); }
+.da-btn.line { background: transparent; color: var(--ink, #15161a); border: 1px solid var(--rule, #e7e5e0); font-size: 14px; }
+.da-btn.line:hover { border-color: var(--ink, #15161a); background: transparent; }
+.da-err { font-size: 13.5px; color: #d6336c; min-height: 1.2em; }
+.da-ok { font-size: 14px; padding: 12px 14px; border-radius: 8px; background: var(--tint, #f6f5f2); }
+.da-ok b { font-size: 1.1rem; }
+
+.da-links { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 13.5px; }
+.da-links button { background: none; border: 0; padding: 0; font: inherit; color: var(--ink-2, #4c5058); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.da-links button:hover { color: var(--ink, #15161a); }
+
+/* 창 대신 페이지 안에 바로 넣을 때 (/signin, /drive) */
+.da-inline { border: 1px solid var(--rule, #e7e5e0); border-radius: 14px; background: var(--paper, #fff); }

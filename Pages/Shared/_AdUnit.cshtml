@@ -1,0 +1,28 @@
+@* ============================================================
+   _AdUnit.cshtml - 광고 칸 하나
+   사용: <partial name="_AdUnit" model="@("side")" />  또는 "inline"
+     side   : 세로형(160x600) — 메인 페이지 양옆 고정용 (AdSense:SlotSide)
+     inline : 반응형 가로형 — 본문 아래 (AdSense:SlotInline)
+   * _AdHead가 이 페이지에서 광고를 켜지 않았거나(제외 경로·ID 없음), 광고 단위 ID가 비어 있으면 아무것도 출력하지 않음
+     → 승인 전에는 빈 칸이 생기지 않음 (승인 후 단위 ID를 넣으면 나타남)
+   ============================================================ *@
+@model string
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    bool adOn = Context.Items["AdOn"] is bool b && b;
+    string adClient = Config["AdSense:Client"] ?? "";
+    string kind = Model ?? "inline";
+    string slot = kind == "side" ? (Config["AdSense:SlotSide"] ?? "") : (Config["AdSense:SlotInline"] ?? "");
+}
+@if (adOn && slot.Length > 0)
+{
+    if (kind == "side")
+    {
+        <ins class="adsbygoogle" style="display:inline-block;width:160px;height:600px" data-ad-client="@adClient" data-ad-slot="@slot"></ins>
+    }
+    else
+    {
+        <ins class="adsbygoogle" style="display:block" data-ad-client="@adClient" data-ad-slot="@slot" data-ad-format="auto" data-full-width-responsive="true"></ins>
+    }
+    <script>(window.adsbygoogle = window.adsbygoogle || []).push({});</script>
+}

@@ -1,0 +1,169 @@
+/* ─────────────────────────────────────────────────────────────
+   통합 관리자 페이지 (/admin) — 메인·소개 페이지와 같은 세계
+   (흰 종이 + 먹색 글자 + 굵은 선, project.css 토큰 사용)
+   관리 도구라 정보가 많음 → 표·목록 위주로 촘촘하게, 강조색은 상태·선택에만
+   ───────────────────────────────────────────────────────────── */
+
+.wrap.wide { max-width: 1240px; }
+.adm { padding-block: 8px 72px; display: grid; gap: 24px; }
+.adm-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.adm-head h1 { font-size: clamp(1.9rem, 4.5vw, 2.6rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; }
+.adm-head .who { color: var(--ink-3); font-size: 14px; }
+
+/* ── 메뉴 (가로 탭, 좁으면 가로 스크롤) ── */
+.adm-nav { display: flex; gap: 4px; overflow-x: auto; border-bottom: 2px solid var(--rule-strong); scrollbar-width: none; }
+.adm-nav::-webkit-scrollbar { display: none; }
+.adm-nav a {
+    flex: none; padding: 10px 14px 9px; font-size: 14.5px; font-weight: 600; color: var(--ink-3);
+    border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .2s ease, border-color .2s ease;
+}
+.adm-nav a:hover { color: var(--ink); }
+.adm-nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.adm-nav .sep { flex: none; width: 1px; margin: 10px 6px; background: var(--rule); }
+
+/* ── 섹션 공통 ── */
+.pane[hidden] { display: none !important; }
+.pane { display: grid; gap: 16px; min-width: 0; }
+.pane-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.pane-head h2 { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+.pane-head .sub { color: var(--ink-3); font-size: 13.5px; }
+.pane-head .sp { flex: 1; }
+.note { color: var(--ink-2); font-size: 14px; }
+.muted { color: var(--ink-3); }
+.empty { color: var(--ink-3); padding: 28px 0; text-align: center; font-size: 14px; }
+
+/* ── 버튼·입력 ── */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink);
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: border-color .2s ease, background-color .2s ease, color .2s ease;
+}
+.btn:hover { border-color: var(--ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.pri { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.pri:hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.adm input:not([type=checkbox]):not([type=radio]), .adm select, .adm textarea {
+    height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--rule); background: var(--paper);
+    color: var(--ink); font: inherit; font-size: 14px; min-width: 0;
+}
+.adm textarea { height: auto; padding: 8px 10px; line-height: 1.5; }
+.adm input:focus, .adm select:focus, .adm textarea:focus { outline: none; border-color: var(--ink); }
+.adm input::placeholder, .adm textarea::placeholder { color: var(--ink-3); }
+.adm input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* ── 표 ── */
+.tbl-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tbl th { text-align: left; font-size: 12.5px; font-weight: 600; color: var(--ink-3); padding: 8px 12px 8px 0; border-bottom: 2px solid var(--rule-strong); white-space: nowrap; }
+.tbl td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.tbl .num { text-align: right; white-space: nowrap; }
+.tbl .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+.tbl tr.pick { cursor: pointer; }
+.tbl tr.pick:hover td { background: var(--tint); }
+.tbl .act { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* 상태 표시 (글자 + 점, 색만으로 구분하지 않음) */
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.st::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.st.ok::before { background: var(--live); }
+.st.bad::before { background: var(--danger); }
+.st.role::before { background: var(--accent); }
+
+/* 숫자 요약 줄 (큰 카드 대신 한 줄 정의 목록) — 소개 페이지의 .facts(위 여백 28px)와 이름이 같아 margin 을 덮어씀 */
+.facts { margin-top: 0; align-items: flex-start; color: var(--ink); display: flex; flex-wrap: wrap; gap: 8px 32px; padding-block: 4px 12px; border-bottom: 1px solid var(--rule); }
+.facts div { display: grid; gap: 2px; }
+.facts dt { font-size: 12.5px; color: var(--ink-3); }
+.facts dd { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+/* 차트 */
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 28px; }
+.chart h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.chart .box { position: relative; height: 220px; }
+
+/* 별점 목록 */
+.rlist { display: grid; }
+.ritem { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; padding: 12px 0; border-bottom: 1px solid var(--rule); align-items: start; }
+.ritem .stars { color: var(--accent); font-weight: 800; letter-spacing: 1px; white-space: nowrap; }
+.ritem .stars .off { color: var(--rule); }   /* 빈 별은 선 색 — 찬 별과 색으로도 구분 */
+.ritem .who { font-weight: 700; } .ritem .who small { color: var(--ink-3); font-weight: 400; }
+.ritem p { color: var(--ink-2); font-size: 14px; } .ritem time { color: var(--ink-3); font-size: 12.5px; }
+
+/* 드라이브 사용량 막대 */
+.bar { width: 120px; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+.bar i { display: block; height: 100%; background: var(--ink); }
+.bar i.full { background: var(--danger); }
+.crumbs { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 14px; align-items: center; }
+.crumbs span { color: var(--ink-3); }
+
+/* ── 아스테라(게임 기록) ── */
+/* admin-poke.js(예전 /pokeadmin 스크립트)가 글자 안에 쓰는 색 이름을 페이지 토큰으로 연결 */
+#pane-poke { --sub: var(--ink-2); --muted: var(--ink-3); --line: var(--rule); --red: var(--danger); }
+.poke-grid { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 920px) { .poke-grid { grid-template-columns: 1fr; } }
+.box-line { border: 1px solid var(--rule); border-radius: 12px; min-width: 0; background: var(--paper); }
+.ph { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.ph b { font-size: 15px; } .ph .sp { flex: 1; }
+.plist { max-height: calc(100dvh - 260px); min-height: 200px; overflow-y: auto; }
+.pl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.pl:hover { background: var(--tint); }
+.pl.on { background: var(--tint); outline: 2px solid var(--ink); outline-offset: -2px; }
+.pl .id { font-weight: 700; } .pl .meta { color: var(--ink-3); font-size: 12.5px; }
+.pl .r { text-align: right; color: var(--ink-3); font-size: 11.5px; }
+.pl .icons { grid-column: 1 / -1; display: flex; }
+.ic { width: 32px; height: 32px; object-fit: cover; object-position: 0 0; image-rendering: pixelated; }
+.ic.big { width: 48px; height: 48px; }
+.detail { padding: 14px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.sec h3 { font-size: 14px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.sec h3 small { color: var(--ink-3); font-weight: 400; }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.kv label { display: flex; flex-direction: column; gap: 4px; color: var(--ink-3); font-size: 12px; }
+.kv .v { color: var(--ink); font-size: 14px; padding: 6px 0; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badges label { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 13px; }
+.mons { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.mon { border: 1px solid var(--rule); border-radius: 10px; padding: 8px; display: grid; grid-template-columns: 48px 1fr; gap: 4px 8px; }
+.mon .nm { font-weight: 700; } .mon .nm .sh { color: var(--accent); }
+.mon .mv { grid-column: 1 / -1; color: var(--ink-3); font-size: 12px; }
+.mon .ctl { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; }
+.mon .ctl input[type=number] { width: 64px; }
+.mon button, .detail .row button, .ph button, .pc button { height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.mon button:hover, .detail .row button:hover, .ph button:hover, .pc button:hover { border-color: var(--ink); }
+.adm button.pri { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.adm button.del:hover { border-color: var(--danger); color: var(--danger); }
+.boxes { display: flex; flex-direction: column; gap: 10px; }
+.boxrow { border: 1px solid var(--rule); border-radius: 10px; }
+.boxrow > div:first-child { padding: 6px 10px; color: var(--ink-3); border-bottom: 1px solid var(--rule); font-size: 13px; }
+.boxgrid { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px; min-height: 40px; }
+.boxgrid .bm { position: relative; cursor: pointer; border-radius: 6px; }
+.boxgrid .bm:hover, .boxgrid .bm.on { background: var(--tint); outline: 1px solid var(--ink); }
+.boxgrid .bm i { position: absolute; right: 1px; bottom: 0; font-style: normal; font-size: 9px; color: var(--ink-3); }
+.boxgrid .bm .s { position: absolute; left: 1px; top: -2px; color: var(--accent); font-size: 10px; }
+.detail table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.detail td, .detail th, .pc table td, .pc table th { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.detail th, .pc table th { color: var(--ink-3); font-weight: 600; font-size: 12px; }
+.detail td input[type=number] { width: 90px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13.5px; }
+.picker { position: relative; }
+.picker .list { position: absolute; left: 0; top: calc(100% + 4px); width: 340px; max-width: 90vw; max-height: 320px; overflow-y: auto; background: var(--paper); border: 1px solid var(--ink); border-radius: 10px; z-index: 10; box-shadow: var(--shadow); }
+.picker .it { display: flex; align-items: center; gap: 6px; padding: 1px 8px; cursor: pointer; font-size: 13px; }
+.picker .it:hover { background: var(--tint); }
+.picker .it .no { color: var(--ink-3); width: 36px; font-variant-numeric: tabular-nums; }
+.picker .it .k { margin-left: auto; color: var(--ink-3); font-size: 10.5px; }
+.detail textarea { width: 100%; min-height: 220px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.savebar { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: center; padding: 10px 14px; background: var(--paper); border-top: 2px solid var(--rule-strong); border-radius: 0 0 12px 12px; }
+.savebar .msg { color: var(--ink-3); flex: 1; font-size: 13.5px; }
+.dirty { color: var(--accent) !important; font-weight: 600; }
+.tag { display: inline-flex; align-items: center; gap: 2px; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--rule); color: var(--ink-2); }
+.tag.y { border-color: var(--accent); color: var(--accent); }
+.pc { margin-top: 8px; }
+
+/* 위험 색 (삭제·한도 초과) — 라이트/다크 모두 대비 확보 */
+:root { --danger: #c92a2a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --danger: #ff7b7b; } }
+:root[data-theme="dark"] { --danger: #ff7b7b; }
+
+@media (max-width: 640px) { .hide-sm { display: none; } .bar { width: 64px; } }
